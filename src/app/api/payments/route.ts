@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { getAuthenticatedMember } from "@/lib/session";
 import { parsePhpToCentavos } from "@/lib/money";
 import { calculateOutstandingCentavos } from "@/lib/ledger";
 import { appendAuditEntry } from "@/lib/audit";
@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey || !idempotencyKeySchema.safeParse(idempotencyKey).success) return NextResponse.json({ error: "A UUID Idempotency-Key header is required." }, { status: 400 });
@@ -32,15 +32,15 @@ export async function POST(request: NextRequest) {
       const loan = await tx.loan.findUnique({ where: { id: parsed.data.loanId }, include: { payments: { include: { reversals: true } } } });
       if (!loan) throw new Error("LOAN_NOT_FOUND");
       if (loan.status !== "ACTIVE") throw new Error("LOAN_NOT_ACTIVE");
-      if (session.memberId !== loan.borrowerId && session.memberId !== loan.lenderId) throw new Error("NOT_PARTY");
+      if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
       if (amountCentavos > outstanding) throw new Error("PAYMENT_EXCEEDS_BALANCE");
       const created = await tx.payment.create({ data: {
         loanId: loan.id, amountCentavos, method: parsed.data.method, status: "AWAITING_ACKNOWLEDGMENT",
         paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : null, reference: parsed.data.reference || null,
-        note: parsed.data.note || null, createdByMemberId: session.memberId,
+        note: parsed.data.note || null, createdByMemberId: session.id,
       } });
-      await appendAuditEntry(tx, { entityType: "PAYMENT", entityId: created.id, eventType: "PAYMENT_PROPOSED", actorMemberId: session.memberId, idempotencyKey, payload: { loanId: loan.id, publicCode: loan.publicCode, amountCentavos: amountCentavos.toString(), method: created.method, status: created.status, reference: created.reference } });
+      await appendAuditEntry(tx, { entityType: "PAYMENT", entityId: created.id, eventType: "PAYMENT_PROPOSED", actorMemberId: session.id, idempotencyKey, payload: { loanId: loan.id, publicCode: loan.publicCode, amountCentavos: amountCentavos.toString(), method: created.method, status: created.status, reference: created.reference } });
       return created;
     });
     return NextResponse.json({ payment: { id: payment.id, loanId: payment.loanId, amountCentavos: payment.amountCentavos.toString(), method: payment.method, status: payment.status, createdAt: payment.createdAt.toISOString() } }, { status: 201 });
