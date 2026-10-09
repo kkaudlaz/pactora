@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { getAuthenticatedMember } from "@/lib/session";
 import { appendAuditEntry } from "@/lib/audit";
 import { parsePhpToCentavos } from "@/lib/money";
 import { calculateOutstandingCentavos } from "@/lib/ledger";
@@ -12,9 +12,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  const where = session.role === "OWNER" ? {} : { OR: [{ borrowerId: session.memberId }, { lenderId: session.memberId }] };
+  const where = session.role === "OWNER" ? {} : { OR: [{ borrowerId: session.id }, { lenderId: session.id }] };
   const loans = await prisma.loan.findMany({
     where,
     include: {
@@ -36,8 +36,8 @@ export async function GET() {
       outstandingCentavos: outstanding.toString(), currency: loan.currency, repaymentTerms: loan.repaymentTerms,
       dueAt: loan.dueAt?.toISOString() ?? null, status: loan.status, termsVersion: loan.termsVersion,
       createdAt: loan.createdAt.toISOString(),
-      myTermsAccepted: loan.approvals.some((a) => a.memberId === session.memberId && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
-      otherPartyAccepted: loan.approvals.some((a) => a.memberId !== session.memberId && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
+      myTermsAccepted: loan.approvals.some((a) => a.memberId === session.id && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
+      otherPartyAccepted: loan.approvals.some((a) => a.memberId !== session.id && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
       payments: loan.payments.map((payment) => ({
         id: payment.id, amountCentavos: payment.amountCentavos.toString(), method: payment.method, createdByMemberId: payment.createdByMemberId,
         status: payment.status, paidAt: payment.paidAt?.toISOString() ?? null, reference: payment.reference,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         description: parsed.data.description, principalCentavos, repaymentTerms: parsed.data.repaymentTerms,
         dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null, status: "DRAFT", termsVersion: 1, termsHash,
       } });
-      await appendAuditEntry(tx, { entityType: "LOAN", entityId: created.id, eventType: "LOAN_DRAFT_CREATED", actorMemberId: session.memberId, idempotencyKey, payload: { publicCode, ...terms, termsHash } });
+      await appendAuditEntry(tx, { entityType: "LOAN", entityId: created.id, eventType: "LOAN_DRAFT_CREATED", actorMemberId: session.id, idempotencyKey, payload: { publicCode, ...terms, termsHash } });
       return created;
     });
     return NextResponse.json({ loan: { id: loan.id, publicCode: loan.publicCode, status: loan.status, termsHash: loan.termsHash, principalCentavos: loan.principalCentavos.toString() } }, { status: 201 });
