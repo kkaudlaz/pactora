@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+enum LoanStatus {
+  DRAFT
+  AWAITING_APPROVAL
+  PENDING_VERIFICATION
+  ACTIVE
+  DISPUTED
+  SETTLED
+  CANCELLED
+}
+
+enum LoanCategory {
+  FOOD_GROCERIES
+  DELIVERY
+  PERSONAL_CASH
+  BILLS
+  REIMBURSEMENT
+  OTHER
+}
+
+enum PaymentMethod {
+  GCASH
+  BANK_TRANSFER
+  CASH
+  OTHER
+}
+
+enum PaymentStatus {
+  PROPOSED
+  AWAITING_ACKNOWLEDGMENT
+  CONFIRMED
+  DISPUTED
+}
+
+enum ApprovalKind {
+  LOAN_TERMS
+  PAYMENT
+  AMENDMENT
+}
+
+model Member {
+  id             String   @id @default(cuid())
+  memberUid      String   @unique @default(cuid())
+  displayName    String
+  email          String?    @unique
+  passwordHash   String?
+  role           MemberRole @default(MEMBER)
+  pinHash        String?
+  disabledAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  borrowerLoans  Loan[]   @relation("BorrowerLoans")
+  lenderLoans    Loan[]   @relation("LenderLoans")
+  approvals      Approval[]
+  accessGrants   AccessGrant[]
+}
+
+model Loan {
+  id             String       @id @default(cuid())
+  publicCode     String       @unique
+  borrowerId     String
+  lenderId       String
+  category       LoanCategory
+  description    String
+  principalCentavos BigInt
+  currency       String       @default("PHP")
+  repaymentTerms String
+  dueAt          DateTime?
+  status         LoanStatus   @default(DRAFT)
+  termsVersion   Int          @default(1)
+  termsHash      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  borrower       Member       @relation("BorrowerLoans", fields: [borrowerId], references: [id])
+  lender         Member       @relation("LenderLoans", fields: [lenderId], references: [id])
+  payments       Payment[]
+  approvals      Approval[]
+  events         LedgerEvent[]
+
+  @@index([borrowerId, status])
+  @@index([lenderId, status])
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  loanId           String
+  amountCentavos   BigInt
+  method           PaymentMethod
+  status           PaymentStatus @default(PROPOSED)
+  paidAt           DateTime?
+  reference        String?
+  evidenceObjectKey String?
+  evidenceSha256   String?
+  note             String?
+  createdByMemberId String?
+  createdAt        DateTime      @default(now())
+  confirmedAt      DateTime?
+  loan             Loan          @relation(fields: [loanId], references: [id])
+  approvals        Approval[]
+  events           LedgerEvent[]
+  reversals        PaymentReversal[]
+
+  @@index([loanId, status])
+}
+
+model Approval {
+  id            String       @id @default(cuid())
+  memberId      String
+  loanId        String
+  paymentId     String?
+  kind          ApprovalKind
+  termsVersion  Int?
+  payloadHash   String
+  decision      String
+  decidedAt     DateTime     @default(now())
+  member        Member       @relation(fields: [memberId], references: [id])
+  loan          Loan         @relation(fields: [loanId], references: [id])
+  payment       Payment?     @relation(fields: [paymentId], references: [id])
+
+  @@index([loanId, kind, decidedAt])
+}
+
+model LedgerEvent {
+  id              String   @id @default(cuid())
+  loanId          String
+  paymentId       String?
+  eventType       String
+  payloadVersion  Int      @default(1)
+  payloadJson     Json
+  payloadSha256   String
+  previousHash    String?
+  eventHash       String
+  actorMemberId   String?
+  idempotencyKey  String   @unique
+  createdAt       DateTime @default(now())
+  chainStatus     String   @default("NOT_CONFIGURED")
+  chainTxId       String?
+  loan            Loan     @relation(fields: [loanId], references: [id])
+  payment         Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([loanId, createdAt])
+  @@index([chainStatus])
+}
+
+model AccessGrant {
+  id           String   @id @default(cuid())
+  memberId     String
+  tokenHash    String   @unique
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime?
+  member       Member   @relation(fields: [memberId], references: [id])
+
+  @@index([memberId, revokedAt])
+}
+
+enum ReversalStatus {
+  PROPOSED
+  AWAITING_ACKNOWLEDGMENT
+  CONFIRMED
+  DISPUTED
+}
+
+model PaymentReversal {
+  id               String         @id @default(cuid())
+  paymentId        String
+  amountCentavos   BigInt
+  reason           String
+  status           ReversalStatus  @default(PROPOSED)
+  createdAt        DateTime        @default(now())
+  confirmedAt      DateTime?
+  payment          Payment         @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId, status])
+}
+
+model AuditEntry {
+  id             String   @id @default(cuid())
+  sequence       BigInt   @unique @default(autoincrement())
+  entityType     String
+  entityId       String
+  eventType      String
+  actorMemberId  String?
+  payloadJson    Json
+  payloadSha256  String
+  previousHash   String?
+  eventHash      String
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
+}
