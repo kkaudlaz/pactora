@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
   const pinHash = await hashPin(parsed.data.pin);
   try {
     const member = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
       const created = await tx.member.create({ data: { displayName: parsed.data.displayName, email, role: "MEMBER", pinHash } });
       await tx.accessGrant.create({ data: { memberId: created.id, tokenHash: hashAccessToken(token) } });
       await appendAuditEntry(tx, { entityType: "MEMBER", entityId: created.id, eventType: "MEMBER_CREATED", actorMemberId: session.id, idempotencyKey, payload: { displayName: created.displayName, memberUid: created.memberUid, role: created.role } });
