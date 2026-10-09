@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const payment = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
       const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true } });
       if (prior) {
         if (prior.entityType !== "PAYMENT") throw new Error("IDEMPOTENCY_CONFLICT");
