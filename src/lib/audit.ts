@@ -15,7 +15,7 @@ export async function appendAuditEntry(
   input: { entityType: string; entityId: string; eventType: string; actorMemberId?: string | null; payload: Record<string, unknown>; idempotencyKey: string },
 ) {
   // Serialize append operations so two concurrent writes cannot fork the global hash chain.
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
+  await tx.$queryRaw`SELECT 'locked'::text AS result FROM (SELECT pg_advisory_xact_lock(711772601)) AS lock_result`;
   const prior = await tx.auditEntry.findFirst({ orderBy: { sequence: "desc" }, select: { eventHash: true } });
   const canonicalPayload = canonicalJson(input.payload);
   const payloadSha256 = sha256(canonicalPayload);
