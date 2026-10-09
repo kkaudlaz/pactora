@@ -187,3 +187,20 @@ model PaymentReversal {
 
   @@index([paymentId, status])
 }
+
+model AuditEntry {
+  id             String   @id @default(cuid())
+  entityType     String
+  entityId       String
+  eventType      String
+  actorMemberId  String?
+  payloadJson    Json
+  payloadSha256  String
+  previousHash   String?
+  eventHash      String
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
+}
