@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMember } from "@/lib/session";
 import { appendAuditEntry } from "@/lib/audit";
