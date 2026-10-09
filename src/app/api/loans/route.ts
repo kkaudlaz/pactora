@@ -39,7 +39,7 @@ export async function GET() {
       myTermsAccepted: loan.approvals.some((a) => a.memberId === session.memberId && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
       otherPartyAccepted: loan.approvals.some((a) => a.memberId !== session.memberId && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
       payments: loan.payments.map((payment) => ({
-        id: payment.id, amountCentavos: payment.amountCentavos.toString(), method: payment.method,
+        id: payment.id, amountCentavos: payment.amountCentavos.toString(), method: payment.method, createdByMemberId: payment.createdByMemberId,
         status: payment.status, paidAt: payment.paidAt?.toISOString() ?? null, reference: payment.reference,
         createdAt: payment.createdAt.toISOString(), reversals: payment.reversals.map((reversal) => ({ amountCentavos: reversal.amountCentavos.toString(), status: reversal.status })),
       })),
