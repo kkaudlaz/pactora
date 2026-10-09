@@ -2,65 +2,96 @@
 
 **Private financial records, built on trust.**
 
-Pactora is a private family-and-friends ledger for loans, reimbursements, receipts, repayments, acknowledgments, and auditable history. Blockchain is an optional behind-the-scenes integrity layer, not a user-facing requirement.
+Pactora is a private family-and-friends ledger for loans, repayments, member acknowledgments, and an append-only audit history. Blockchain is an optional behind-the-scenes integrity layer, not a user-facing requirement.
 
-## Status: early prototype
+## Current milestone: local MVP foundation
 
-The current branch contains a responsive dashboard prototype, a safe integer-centavo domain layer with tests, initial PostgreSQL/Prisma models, request schemas, a database health endpoint, and CI checks. Dashboard sample data and draft changes live only in browser memory. **Owner login, server-side PIN/QR access, durable loan/payment APIs, private evidence uploads, and blockchain integration are not implemented yet. Do not use this version for real financial records.**
+This branch now includes:
+
+- A responsive sample-data dashboard at `/` and a separate authenticated owner workspace at `/workspace`.
+- Owner sign-in with scrypt password hashing, HMAC-signed HttpOnly sessions, and bounded login-attempt throttling.
+- Member creation with a server-hashed 6–12 digit PIN and a random QR bearer token whose hash is stored in PostgreSQL.
+- Member QR + PIN sign-in at `/access` and a private member dashboard at `/member`.
+- Database-backed loan drafts; both borrower and lender must approve the exact same terms hash/version before a loan becomes active.
+- Payment proposals; the other party must acknowledge a proposal before it changes the confirmed balance.
+- Integer-centavo arithmetic, idempotency keys, transactional audit entries, and a serialized SHA-256 hash chain.
+- Prisma/PostgreSQL, Vitest tests, local Docker Compose, and GitHub Actions CI.
+
+**Still incomplete:** GCash/cash evidence uploads, signatures, QR revocation UI, member/PIN recovery, full dispute/correction UI, durable shared rate limiting, audit verification tooling, automated database backup/restore tests, and optional blockchain anchoring. This is a local development milestone, not a production-ready financial service. Do not enter real family financial data until the remaining security and privacy work is complete.
 
 ## Stack
 
 - Node.js 20
 - Next.js App Router + React + TypeScript
 - PostgreSQL + Prisma
-- Zod input schemas
-- Vitest domain tests
+- Zod validation and Vitest tests
 - GitHub Actions CI
 
-## Run locally
+## Run locally on Windows
 
-Install Node.js 20 and Docker Desktop. From the repository root:
+Install Node.js 20 and Docker Desktop, then open PowerShell in the repository folder.
 
-```bash
+```powershell
 npm install
-cp .env.example .env
+Copy-Item .env.example .env
 docker compose up -d postgres
 npx prisma generate
 npx prisma db push
+```
+
+Open `.env` and replace `SESSION_SECRET` with a fresh random value. Generate one with:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+```
+
+Copy the output into `.env` as `SESSION_SECRET="..."`. Do not commit `.env`.
+
+Bootstrap the owner account from the same PowerShell window. These variables are read only by the one-time seed command and are not written into repository files:
+
+```powershell
+$env:OWNER_EMAIL = "you@example.com"
+$env:OWNER_DISPLAY_NAME = "Workspace Owner"
+$env:OWNER_PASSWORD = Read-Host "Enter a unique password (12+ characters)"
+npm run seed:owner
+Remove-Item Env:OWNER_PASSWORD
+Remove-Item Env:OWNER_EMAIL
+Remove-Item Env:OWNER_DISPLAY_NAME
+```
+
+Then start the app:
+
+```powershell
 npm run dev
 ```
 
-Open `http://localhost:3000`. The UI is a sample-data prototype. The database health endpoint is `http://localhost:3000/api/health`.
+Open `http://localhost:3000`. The root route is a **sample-data visual preview**. Choose **Open secure workspace** or go to `http://localhost:3000/login` to sign in. Create member profiles in **Members & access**; scan a member QR link on the device that member will use, enter their PIN, and visit `/member`. Create a loan draft, then sign in as each party to approve the same terms. Once active, either party can propose a payment and the other party must acknowledge it.
 
-On Windows PowerShell, copy the environment file with:
+The database health endpoint is `http://localhost:3000/api/health`.
 
-```powershell
-Copy-Item .env.example .env
-```
-
-To stop the local database, run `docker compose down`. To also remove its local development data, run `docker compose down -v` (destructive).
+To stop the local database, run `docker compose down`. To also delete the local development database volume, run `docker compose down -v` (destructive).
 
 ## Validate
 
-```bash
+```powershell
 npm run lint
 npm run typecheck
 npm test
 npm run build
 ```
 
-## Product invariants
+## Ledger and trust invariants
 
 - Store money as integer PHP centavos, never floating-point values.
-- Drafts and pending transfers are not confirmed debts or payments.
-- Only confirmed payments affect the confirmed balance; reversals are separate records.
-- Preserve confirmed events. Corrections append events referencing originals.
-- Member UID is not a credential. QR grants must be random, scoped, revocable, and stored as hashes; detailed access requires a server-verified PIN and rate limiting.
-- Receipts, signatures, names, phone numbers, PINs, and tokens stay off-chain. Private evidence files must live in access-controlled encrypted storage, not GitHub.
-- A receipt screenshot does not independently prove a transfer succeeded; a drawn signature alone does not prove identity or guarantee legal enforceability.
+- A draft is not an active debt. Both parties must accept the same frozen terms hash/version.
+- A proposed payment does not reduce the confirmed balance until the other party acknowledges it.
+- Confirmed history is corrected with additional records, not silently overwritten.
+- Member UID is an identifier, not a secret. QR grants use random bearer tokens; only token hashes are persisted.
+- Screenshots and transaction references are supporting evidence, not automatic proof that a transfer happened.
+- Never put personal data, PINs, raw QR tokens, screenshots, signatures, or secrets on a blockchain. Blockchain anchoring is not yet implemented.
 
-## Security
+## Security limits to address before deployment
+
+The current login throttle is in-memory and per application process. It is useful for local development but is not sufficient for a multi-instance deployment; production requires a shared rate-limit store and edge controls. Configure HTTPS, secure cookies, secret management, private evidence storage, backup/restore drills, monitoring, and a security review before any real-world pilot. A drawn signature alone does not prove identity or guarantee legal enforceability. Review applicable Philippine privacy, electronic-transactions, and lending requirements.
 
 **Set this repository to Private before adding any sensitive project information.** A private GitHub repository is still not a database or evidence vault. Never commit `.env`, production records, GCash screenshots, signatures, member PINs, QR tokens, or signing keys. See [SECURITY.md](SECURITY.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-Before real-world use, complete server-side authentication/authorization, privacy controls, rate limiting, durable event/idempotency transactions, private evidence storage, recovery tests, and a security review. Review applicable Philippine privacy, electronic-transactions, and lending requirements.
