@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
   const publicCode = `PT-${randomUUID().slice(0, 8).toUpperCase()}`;
   try {
     const loan = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
       const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true } });
       if (prior) {
         if (prior.entityType !== "LOAN") throw new Error("IDEMPOTENCY_CONFLICT");
