@@ -1,9 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createSessionValue, verifySessionValue } from "./session";
 
-const oldSecret = process.env.SESSION_SECRET;
 process.env.SESSION_SECRET = "test-only-secret-with-more-than-32-bytes";
-afterEach(() => { if (oldSecret === undefined) delete process.env.SESSION_SECRET; else process.env.SESSION_SECRET = oldSecret; });
 
 describe("signed session values", () => {
   it("accepts a valid unexpired session", () => {
