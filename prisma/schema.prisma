@@ -190,6 +190,7 @@ model PaymentReversal {
 
 model AuditEntry {
   id             String   @id @default(cuid())
+  sequence       BigInt   @unique @default(autoincrement())
   entityType     String
   entityId       String
   eventType      String
