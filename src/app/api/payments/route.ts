@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       if (!loan) throw new Error("LOAN_NOT_FOUND");
       if (loan.status !== "ACTIVE") throw new Error("LOAN_NOT_ACTIVE");
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
+      if (loan.payments.some((item) => item.status === "AWAITING_ACKNOWLEDGMENT")) throw new Error("PAYMENT_ALREADY_PENDING");
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
       if (amountCentavos > outstanding) throw new Error("PAYMENT_EXCEEDS_BALANCE");
       const created = await tx.payment.create({ data: {
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
         LOAN_NOT_ACTIVE: { status: 409, message: "Payments can only be proposed for active loans." },
         NOT_PARTY: { status: 403, message: "You are not a party to this loan." },
         PAYMENT_EXCEEDS_BALANCE: { status: 400, message: "Payment exceeds the outstanding confirmed balance." },
+        PAYMENT_ALREADY_PENDING: { status: 409, message: "This loan already has a repayment awaiting acknowledgment. Wait for it to be acknowledged before submitting another repayment." },
       };
       if (known[error.message]) return NextResponse.json({ error: known[error.message].message }, { status: known[error.message].status });
     }
