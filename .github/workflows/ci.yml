@@ -11,6 +11,8 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://pactora:pactora@localhost:5432/pactora?schema=public
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -18,9 +20,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - name: Install dependencies
         run: npm install
+      - name: Validate Prisma schema
+        run: npx prisma validate
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Lint
