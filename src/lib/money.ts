@@ -12,8 +12,8 @@ export function parsePhpToCentavos(input: string): Centavos {
   return BigInt(pesos) * 100n + BigInt((fraction + "00").slice(0, 2));
 }
 
-export function formatPhp(centavos: Centavos | number): string {
-  const value = typeof centavos === "bigint" ? centavos : BigInt(centavos);
+export function formatPhp(centavos: Centavos): string {
+  const value = centavos;
   const negative = value < 0n;
   const absolute = negative ? -value : value;
   const pesos = absolute / 100n;
