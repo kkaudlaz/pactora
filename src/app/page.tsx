@@ -44,7 +44,7 @@ export default function Home() {
       setToast("Enter a member, purpose, and valid amount.");
       return;
     }
-    const newLoan: Loan = { id: `PT-${1050 + loans.length}`, person: person.trim(), initials: person.trim().split(/\\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), purpose: purpose.trim(), category, principal: cents, paid: 0n, status: "Awaiting approval", due: "Not set", direction };
+    const newLoan: Loan = { id: `PT-${1050 + loans.length}`, person: person.trim(), initials: person.trim().split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), purpose: purpose.trim(), category, principal: cents, paid: 0n, status: "Awaiting approval", due: "Not set", direction };
     setLoans((current) => [newLoan, ...current]);
     setShowNew(false); setPerson(""); setPurpose(""); setAmount("");
     setToast("Demo draft created locally. It is not saved to a server or blockchain.");
