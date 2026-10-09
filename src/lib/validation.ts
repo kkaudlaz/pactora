@@ -8,7 +8,7 @@ export const createLoanDraftSchema = z.object({
   lenderId: z.string().trim().min(1).max(128),
   category: loanCategorySchema,
   description: z.string().trim().min(1).max(500),
-  amountPhp: z.string().trim().regex(/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/, "Use a PHP amount with at most two decimal places."),
+  amountPhp: z.string().trim().regex(/^(?:0|[1-9][0-9]*)(?:[.][0-9]{1,2})?$/, "Use a PHP amount with at most two decimal places."),
   repaymentTerms: z.string().trim().min(1).max(2000),
   dueAt: z.string().datetime().optional(),
 }).refine((value) => value.borrowerId !== value.lenderId, {
@@ -18,7 +18,7 @@ export const createLoanDraftSchema = z.object({
 
 export const proposePaymentSchema = z.object({
   loanId: z.string().trim().min(1).max(128),
-  amountPhp: z.string().trim().regex(/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/, "Use a PHP amount with at most two decimal places."),
+  amountPhp: z.string().trim().regex(/^(?:0|[1-9][0-9]*)(?:[.][0-9]{1,2})?$/, "Use a PHP amount with at most two decimal places."),
   method: paymentMethodSchema,
   paidAt: z.string().datetime().optional(),
   reference: z.string().trim().max(200).optional(),
