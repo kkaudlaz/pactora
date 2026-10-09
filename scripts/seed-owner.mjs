@@ -16,7 +16,7 @@ try {
   const email = process.env.OWNER_EMAIL?.trim().toLowerCase();
   const password = process.env.OWNER_PASSWORD;
   const displayName = process.env.OWNER_DISPLAY_NAME?.trim() || "Pactora Owner";
-  if (!email || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email)) throw new Error("Set OWNER_EMAIL to a valid email address.");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Set OWNER_EMAIL to a valid email address.");
   if (!password) throw new Error("Set OWNER_PASSWORD in your local environment; do not put it in a committed file.");
   const passwordHash = await hashPassword(password);
   const existing = await prisma.member.findUnique({ where: { email } });
