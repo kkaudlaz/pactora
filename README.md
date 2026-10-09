@@ -52,7 +52,8 @@ Bootstrap the owner account from the same PowerShell window. These variables are
 ```powershell
 $env:OWNER_EMAIL = "you@example.com"
 $env:OWNER_DISPLAY_NAME = "Workspace Owner"
-$env:OWNER_PASSWORD = Read-Host "Enter a unique password (12+ characters)"
+$securePassword = Read-Host "Enter a unique password (12+ characters)" -AsSecureString
+$env:OWNER_PASSWORD = [System.Net.NetworkCredential]::new("", $securePassword).Password
 npm run seed:owner
 Remove-Item Env:OWNER_PASSWORD
 Remove-Item Env:OWNER_EMAIL
