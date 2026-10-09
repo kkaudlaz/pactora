@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await getAuthenticatedMember();
   if (!session || session.role !== "OWNER") return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  const entries = await prisma.auditEntry.findMany({ orderBy: { sequence: "asc" }, select: { sequence: true, entityType: true, entityId: true, eventType: true, actorMemberId: true, payloadJson: true, payloadSha256: true, previousHash: true, eventHash: true, idempotencyKey: true } });
+  const entries = await prisma.auditEntry.findMany({ orderBy: { sequence: "asc" }, select: { sequence: true, entityType: true, entityId: true, eventType: true, actorMemberId: true, payloadJson: true, payloadSha256: true, previousHash: true, eventHash: true, idempotencyKey: true, createdAt: true } });
   const result = verifyAuditChain(entries);
   return NextResponse.json(result, { status: result.ok ? 200 : 409 });
 }
