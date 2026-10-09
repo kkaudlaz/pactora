@@ -52,9 +52,9 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   try {
     const result = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
-      const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true } });
+      const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true, eventType: true } });
       if (prior) {
-        if (prior.entityType !== "MEMBER") throw new Error("IDEMPOTENCY_CONFLICT");
+        if (prior.entityType !== "MEMBER" || prior.entityId !== memberId || prior.eventType !== "MEMBER_QR_REVOKED") throw new Error("IDEMPOTENCY_CONFLICT");
         return { revoked: 0, replay: true };
       }
       const member = await tx.member.findUnique({ where: { id: memberId }, select: { id: true, memberUid: true, role: true } });
