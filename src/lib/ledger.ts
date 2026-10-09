@@ -1,19 +1,29 @@
-export type PaymentState = "PROPOSED" | "AWAITING_ACKNOWLEDGMENT" | "CONFIRMED" | "DISPUTED" | "REVERSED";
+export type PaymentState = "PROPOSED" | "AWAITING_ACKNOWLEDGMENT" | "CONFIRMED" | "DISPUTED";
+export type ReversalState = "PROPOSED" | "AWAITING_ACKNOWLEDGMENT" | "CONFIRMED" | "DISPUTED";
+
+export interface ReversalForBalance {
+  amountCentavos: bigint;
+  status: ReversalState;
+}
 
 export interface PaymentForBalance {
   amountCentavos: bigint;
   status: PaymentState;
-  reversesPaymentId?: string | null;
   id: string;
+  reversals?: ReversalForBalance[];
 }
 
-/** Only confirmed payments reduce the outstanding principal. Proposed and disputed payments do not. */
+/** Only confirmed payments reduce the balance; separately confirmed reversals restore it. */
 export function calculateOutstandingCentavos(principalCentavos: bigint, payments: PaymentForBalance[]): bigint {
-  const confirmed = payments.reduce((sum, payment) => {
+  const netPaid = payments.reduce((sum, payment) => {
     if (payment.status !== "CONFIRMED") return sum;
-    return sum + payment.amountCentavos;
+    const confirmedReversals = (payment.reversals ?? []).reduce(
+      (reversalSum, reversal) => reversal.status === "CONFIRMED" ? reversalSum + reversal.amountCentavos : reversalSum,
+      0n,
+    );
+    return sum + payment.amountCentavos - confirmedReversals;
   }, 0n);
-  const outstanding = principalCentavos - confirmed;
+  const outstanding = principalCentavos - netPaid;
   return outstanding > 0n ? outstanding : 0n;
 }
 
@@ -29,4 +39,11 @@ export function assertValidLoanParties(borrowerId: string, lenderId: string): vo
 export function assertValidPayment(amountCentavos: bigint, outstandingCentavos: bigint): void {
   if (amountCentavos <= 0n) throw new Error("Payment amount must be greater than zero.");
   if (amountCentavos > outstandingCentavos) throw new Error("Payment exceeds the outstanding balance.");
+}
+
+export function assertValidReversal(amountCentavos: bigint, originalPaymentCentavos: bigint, alreadyReversedCentavos: bigint): void {
+  if (amountCentavos <= 0n) throw new Error("Reversal amount must be greater than zero.");
+  if (alreadyReversedCentavos < 0n || alreadyReversedCentavos + amountCentavos > originalPaymentCentavos) {
+    throw new Error("Total reversals cannot exceed the original payment amount.");
+  }
 }
