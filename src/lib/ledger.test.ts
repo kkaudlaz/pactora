@@ -9,6 +9,7 @@ describe("PHP amount parsing", () => {
   it("accepts whole pesos", () => expect(parsePhpToCentavos("12")).toBe(1200n));
   it("rejects too many decimal places", () => expect(() => parsePhpToCentavos("12.345")).toThrow());
   it("rejects negative amounts", () => expect(() => parsePhpToCentavos("-10")).toThrow());
+  it("rejects malformed thousands separators", () => expect(() => parsePhpToCentavos("1,2,3.00")).toThrow());
 });
 
 describe("confirmed ledger balances", () => {
