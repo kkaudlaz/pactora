@@ -1,5 +1,11 @@
 # Pactora architecture
 
+## Current branch implementation status
+
+Implemented in the current local-MVP branch: owner password login, signed HttpOnly session cookies, server-side account revalidation, member QR bearer tokens with 90-day expiry/rotation/revocation, server-hashed PINs, member-scoped loan reads, loan draft creation, matching-term approval by both parties, payment proposal and counterparty acknowledgment, integer-centavo balance calculations, and a sequenced SHA-256 audit chain with verification endpoint.
+
+Not implemented or not production-ready: private GCash/cash evidence object storage, drawn signatures, PIN recovery, full dispute and correction workflows, shared rate limiting across processes, monitoring/alerting, verified backup restoration, external security review, and blockchain anchoring. The in-memory login throttle is only a local-development guard. End-to-end CI for the latest branch must pass before relying on these workflows.
+
 ## Trust boundary
 
 The browser is untrusted. It may display a prototype, but all real financial changes must be validated and authorized on the server. The member UID is an identifier, not an authenticator. QR tokens must be cryptographically random, stored only as hashes, scoped to a member, expiring/revocable, and followed by server-verified PIN checks. Apply rate limits to both token and PIN attempts.
