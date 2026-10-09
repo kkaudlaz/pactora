@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { getAuthenticatedMember } from "@/lib/session";
 import { appendAuditEntry } from "@/lib/audit";
 import { calculateOutstandingCentavos } from "@/lib/ledger";
 import { idempotencyKeySchema } from "@/lib/validation";
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ paymentId: string }> }) {
-  const session = await getSession();
+  const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey || !idempotencyKeySchema.safeParse(idempotencyKey).success) return NextResponse.json({ error: "A UUID Idempotency-Key header is required." }, { status: 400 });
@@ -29,16 +29,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
       const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { loan: { include: { payments: { include: { reversals: true } } } } });
       if (!payment) throw new Error("PAYMENT_NOT_FOUND");
       const loan = payment.loan;
-      if (session.memberId !== loan.borrowerId && session.memberId !== loan.lenderId) throw new Error("NOT_PARTY");
-      if (payment.createdByMemberId === session.memberId) throw new Error("SELF_CONFIRM");
+      if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
+      if (payment.createdByMemberId === session.id) throw new Error("SELF_CONFIRM");
       if (payment.status !== "AWAITING_ACKNOWLEDGMENT") throw new Error("PAYMENT_NOT_PENDING");
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
       if (payment.amountCentavos > outstanding) throw new Error("PAYMENT_EXCEEDS_BALANCE");
       const confirmedAt = new Date();
       const updated = await tx.payment.update({ where: { id: payment.id }, data: { status: "CONFIRMED", confirmedAt } });
       const payloadHash = createHash("sha256").update(JSON.stringify({ paymentId: payment.id, amountCentavos: payment.amountCentavos.toString(), method: payment.method, loanId: loan.id })).digest("hex");
-      await tx.approval.create({ data: { memberId: session.memberId, loanId: loan.id, paymentId: payment.id, kind: "PAYMENT", payloadHash, decision: "CONFIRMED" } });
-      await appendAuditEntry(tx, { entityType: "PAYMENT", entityId: payment.id, eventType: "PAYMENT_CONFIRMED", actorMemberId: session.memberId, idempotencyKey, payload: { loanId: loan.id, amountCentavos: payment.amountCentavos.toString(), confirmedAt: confirmedAt.toISOString(), payloadHash } });
+      await tx.approval.create({ data: { memberId: session.id, loanId: loan.id, paymentId: payment.id, kind: "PAYMENT", payloadHash, decision: "CONFIRMED" } });
+      await appendAuditEntry(tx, { entityType: "PAYMENT", entityId: payment.id, eventType: "PAYMENT_CONFIRMED", actorMemberId: session.id, idempotencyKey, payload: { loanId: loan.id, amountCentavos: payment.amountCentavos.toString(), confirmedAt: confirmedAt.toISOString(), payloadHash } });
       const netPaid = loan.payments.reduce((sum, item) => {
         if (item.status !== "CONFIRMED" && item.id !== payment.id) return sum;
         const reversals = item.reversals.reduce((total, reversal) => reversal.status === "CONFIRMED" ? total + reversal.amountCentavos : total, 0n);
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
       const settled = loan.status === "ACTIVE" && loan.principalCentavos - netPaid <= 0n;
       if (settled) {
         await tx.loan.update({ where: { id: loan.id }, data: { status: "SETTLED" } });
-        await appendAuditEntry(tx, { entityType: "LOAN", entityId: loan.id, eventType: "LOAN_SETTLED", actorMemberId: session.memberId, idempotencyKey: `${idempotencyKey}:settled`, payload: { publicCode: loan.publicCode, settledByPaymentId: payment.id, settledAt: confirmedAt.toISOString() } });
+        await appendAuditEntry(tx, { entityType: "LOAN", entityId: loan.id, eventType: "LOAN_SETTLED", actorMemberId: session.id, idempotencyKey: `${idempotencyKey}:settled`, payload: { publicCode: loan.publicCode, settledByPaymentId: payment.id, settledAt: confirmedAt.toISOString() } });
       }
       return { payment: updated, settled, replay: false };
     }, { isolationLevel: "Serializable" });
