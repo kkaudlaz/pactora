@@ -39,7 +39,7 @@ export function verifyAuditChain(records: AuditIntegrityRecord[]): { ok: boolean
     const expectedPayloadHash = sha256(canonicalJson(record.payloadJson));
     if (expectedPayloadHash !== record.payloadSha256 || record.previousHash !== previousHash) return { ok: false, checked: index, firstInvalidSequence: sequence };
     const expectedEventHash = sha256(JSON.stringify({ entityType: record.entityType, entityId: record.entityId, eventType: record.eventType, actorMemberId: record.actorMemberId ?? null, payloadSha256: record.payloadSha256, previousHash: record.previousHash, idempotencyKey: record.idempotencyKey, createdAt: new Date(record.createdAt).toISOString() }));
-    if (expectedEventHash !== record.eventHash) return { ok: false, checked: Number(sequence) - 1, firstInvalidSequence: sequence };
+    if (expectedEventHash !== record.eventHash) return { ok: false, checked: index, firstInvalidSequence: sequence };
     previousHash = record.eventHash;
   }
   return { ok: true, checked: records.length, firstInvalidSequence: null };
