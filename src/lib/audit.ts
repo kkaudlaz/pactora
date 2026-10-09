@@ -33,10 +33,10 @@ export type AuditIntegrityRecord = {
 /** Verify payload digests, event hashes, and continuity in ascending database sequence. */
 export function verifyAuditChain(records: AuditIntegrityRecord[]): { ok: boolean; checked: number; firstInvalidSequence: string | null } {
   let previousHash: string | null = null;
-  for (const record of records) {
+  for (const [index, record] of records.entries()) {
     const sequence = String(record.sequence);
     const expectedPayloadHash = sha256(canonicalJson(record.payloadJson));
-    if (expectedPayloadHash !== record.payloadSha256 || record.previousHash !== previousHash) return { ok: false, checked: Number(sequence) - 1, firstInvalidSequence: sequence };
+    if (expectedPayloadHash !== record.payloadSha256 || record.previousHash !== previousHash) return { ok: false, checked: index, firstInvalidSequence: sequence };
     const expectedEventHash = sha256(JSON.stringify({ entityType: record.entityType, entityId: record.entityId, eventType: record.eventType, actorMemberId: record.actorMemberId ?? null, payloadSha256: record.payloadSha256, previousHash: record.previousHash, idempotencyKey: record.idempotencyKey }));
     if (expectedEventHash !== record.eventHash) return { ok: false, checked: Number(sequence) - 1, firstInvalidSequence: sequence };
     previousHash = record.eventHash;
