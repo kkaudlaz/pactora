@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
 enum LoanStatus {
   DRAFT
   AWAITING_APPROVAL
@@ -50,6 +55,9 @@ model Member {
   id             String   @id @default(cuid())
   memberUid      String   @unique @default(cuid())
   displayName    String
+  email          String?    @unique
+  passwordHash   String?
+  role           MemberRole @default(MEMBER)
   pinHash        String?
   disabledAt     DateTime?
   createdAt      DateTime @default(now())
@@ -57,6 +65,7 @@ model Member {
   borrowerLoans  Loan[]   @relation("BorrowerLoans")
   lenderLoans    Loan[]   @relation("LenderLoans")
   approvals      Approval[]
+  accessGrants   AccessGrant[]
 }
 
 model Loan {
@@ -154,7 +163,8 @@ model AccessGrant {
   revokedAt    DateTime?
   createdAt    DateTime @default(now())
   lastUsedAt   DateTime?
-  // Member relation intentionally added in the access/auth milestone.
+  member       Member   @relation(fields: [memberId], references: [id])
+
   @@index([memberId, revokedAt])
 }
 
