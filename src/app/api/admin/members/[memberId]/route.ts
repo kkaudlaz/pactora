@@ -49,7 +49,10 @@ export async function GET(_request: Request, context: { params: Promise<{ member
     })),
   }));
 
-  const entityIds = [memberId, ...records.map((loan) => loan.id), ...records.flatMap((loan) => loan.payments.map((payment) => payment.id))];
+  const entityIds = [memberId, ...records.map((loan) => loan.id), ...records.flatMap((loan) => [
+    ...loan.payments.map((payment) => payment.id),
+    ...loan.payments.flatMap((payment) => payment.reversals.map((reversal) => reversal.id)),
+  ])];
   const audit = await prisma.auditEntry.findMany({
     where: { entityId: { in: entityIds } }, orderBy: { sequence: "desc" }, take: 200,
     select: { sequence: true, entityType: true, entityId: true, eventType: true, actorMemberId: true, createdAt: true, eventHash: true, previousHash: true },
