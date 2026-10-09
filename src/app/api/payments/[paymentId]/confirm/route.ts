@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
         if (prior.entityType !== "PAYMENT" || prior.eventType !== "PAYMENT_CONFIRMED") throw new Error("IDEMPOTENCY_CONFLICT");
         return { payment: await tx.payment.findUniqueOrThrow({ where: { id: prior.entityId } }), settled: false, replay: true };
       }
-      const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { loan: { include: { payments: { include: { reversals: true } } } } });
+      const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { loan: { include: { payments: { include: { reversals: true } } } } } });
       if (!payment) throw new Error("PAYMENT_NOT_FOUND");
       const loan = payment.loan;
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
