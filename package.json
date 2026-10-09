@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:owner": "node scripts/seed-owner.mjs"
+    "seed:owner": "node --env-file=.env scripts/seed-owner.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
