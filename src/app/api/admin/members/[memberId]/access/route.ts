@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ me
   const token = createAccessToken();
   try {
     const member = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
+      await tx.$queryRaw`SELECT 'locked'::text AS result FROM (SELECT pg_advisory_xact_lock(711772601)) AS lock_result`;
       const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { id: true } });
       if (prior) throw new Error("IDEMPOTENCY_REPLAY");
       const target = await tx.member.findUnique({ where: { id: memberId } });
@@ -51,7 +51,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   const { memberId } = await context.params;
   try {
     const result = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
+      await tx.$queryRaw`SELECT 'locked'::text AS result FROM (SELECT pg_advisory_xact_lock(711772601)) AS lock_result`;
       const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true, eventType: true } });
       if (prior) {
         if (prior.entityType !== "MEMBER" || prior.entityId !== memberId || prior.eventType !== "MEMBER_QR_REVOKED") throw new Error("IDEMPOTENCY_CONFLICT");
