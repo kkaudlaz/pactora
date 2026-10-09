@@ -16,7 +16,7 @@ function derivePin(pin: string, salt: Buffer): Promise<Buffer> {
 }
 
 function assertPinFormat(pin: string): void {
-  if (!/^\\d{6,12}$/.test(pin)) throw new Error("PIN must contain 6 to 12 digits.");
+  if (!/^[0-9]{6,12}$/.test(pin)) throw new Error("PIN must contain 6 to 12 digits.");
 }
 
 /** Hash a PIN for database storage. Online attempt rate limiting is still mandatory. */
@@ -29,7 +29,7 @@ export async function hashPin(pin: string): Promise<string> {
 
 /** Verify only hashes produced by this module; malformed/unsupported encodings fail closed. */
 export async function verifyPin(pin: string, encodedHash: string): Promise<boolean> {
-  if (!/^\\d{6,12}$/.test(pin)) return false;
+  if (!/^[0-9]{6,12}$/.test(pin)) return false;
   const parts = encodedHash.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt" || parts[1] !== String(SCRYPT_N) || parts[2] !== String(SCRYPT_R) || parts[3] !== String(SCRYPT_P)) return false;
   if (!/^[a-f0-9]{32}$/.test(parts[4]) || !/^[a-f0-9]{128}$/.test(parts[5])) return false;
