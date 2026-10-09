@@ -23,6 +23,9 @@ export const proposePaymentSchema = z.object({
   paidAt: z.string().datetime().optional(),
   reference: z.string().trim().max(200).optional(),
   note: z.string().trim().max(1000).optional(),
+}).refine((value) => !["GCASH", "BANK_TRANSFER"].includes(value.method) || Boolean(value.reference?.trim()), {
+  message: "A transaction reference is required for GCash and bank transfers.",
+  path: ["reference"],
 });
 
 export const idempotencyKeySchema = z.string().uuid();
