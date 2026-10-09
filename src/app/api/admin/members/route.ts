@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { getAuthenticatedMember } from "@/lib/session";
 import { hashPin, createAccessToken, hashAccessToken } from "@/lib/access";
 import { appendAuditEntry } from "@/lib/audit";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const createMemberSchema = z.object({ displayName: z.string().trim().min(2).max(100), pin: z.string().regex(/^[0-9]{6,12}$/), email: z.string().trim().email().max(254).optional() });
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getAuthenticatedMember();
   if (!session || session.role !== "OWNER") return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const members = await prisma.member.findMany({ where: { disabledAt: null }, orderBy: { createdAt: "desc" }, select: { id: true, memberUid: true, displayName: true, email: true, role: true, createdAt: true } });
   return NextResponse.json({ members });
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const member = await prisma.$transaction(async (tx) => {
       const created = await tx.member.create({ data: { displayName: parsed.data.displayName, email, role: "MEMBER", pinHash } });
       await tx.accessGrant.create({ data: { memberId: created.id, tokenHash: hashAccessToken(token) } });
-      await appendAuditEntry(tx, { entityType: "MEMBER", entityId: created.id, eventType: "MEMBER_CREATED", actorMemberId: session.memberId, idempotencyKey, payload: { displayName: created.displayName, memberUid: created.memberUid, role: created.role } });
+      await appendAuditEntry(tx, { entityType: "MEMBER", entityId: created.id, eventType: "MEMBER_CREATED", actorMemberId: session.id, idempotencyKey, payload: { displayName: created.displayName, memberUid: created.memberUid, role: created.role } });
       return { id: created.id, memberUid: created.memberUid, displayName: created.displayName, email: created.email, role: created.role, createdAt: created.createdAt };
     });
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
