@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatPhp } from "@/lib/money";
+import { formatPhp, parsePhpToCentavos } from "@/lib/money";
 
 type LoanStatus = "Active" | "Awaiting approval" | "Disputed" | "Settled";
 type Loan = { id: string; person: string; initials: string; purpose: string; category: string; principal: bigint; paid: bigint; status: LoanStatus; due: string; direction: "They owe you" | "You owe them" };
@@ -38,12 +38,13 @@ export default function Home() {
 
   function createDraft(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const cents = Math.round(Number(amount) * 100);
-    if (!person.trim() || !purpose.trim() || !Number.isSafeInteger(cents) || cents <= 0) {
+    let cents: bigint;
+    try { cents = parsePhpToCentavos(amount); } catch { setToast("Enter a member, purpose, and valid amount."); return; }
+    if (!person.trim() || !purpose.trim() || cents <= 0n) {
       setToast("Enter a member, purpose, and valid amount.");
       return;
     }
-    const newLoan: Loan = { id: `PT-${1050 + loans.length}`, person: person.trim(), initials: person.trim().split(/\\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), purpose: purpose.trim(), category, principal: BigInt(cents), paid: 0n, status: "Awaiting approval", due: "Not set", direction };
+    const newLoan: Loan = { id: `PT-${1050 + loans.length}`, person: person.trim(), initials: person.trim().split(/\\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), purpose: purpose.trim(), category, principal: cents, paid: 0n, status: "Awaiting approval", due: "Not set", direction };
     setLoans((current) => [newLoan, ...current]);
     setShowNew(false); setPerson(""); setPurpose(""); setAmount("");
     setToast("Demo draft created locally. It is not saved to a server or blockchain.");
