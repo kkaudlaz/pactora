@@ -38,7 +38,6 @@ enum PaymentStatus {
   AWAITING_ACKNOWLEDGMENT
   CONFIRMED
   DISPUTED
-  REVERSED
 }
 
 enum ApprovalKind {
@@ -100,11 +99,10 @@ model Payment {
   createdByMemberId String?
   createdAt        DateTime      @default(now())
   confirmedAt      DateTime?
-  reversedAt       DateTime?
-  reversalReason   String?
   loan             Loan          @relation(fields: [loanId], references: [id])
   approvals        Approval[]
   events           LedgerEvent[]
+  reversals        PaymentReversal[]
 
   @@index([loanId, status])
 }
@@ -158,4 +156,24 @@ model AccessGrant {
   lastUsedAt   DateTime?
   // Member relation intentionally added in the access/auth milestone.
   @@index([memberId, revokedAt])
+}
+
+enum ReversalStatus {
+  PROPOSED
+  AWAITING_ACKNOWLEDGMENT
+  CONFIRMED
+  DISPUTED
+}
+
+model PaymentReversal {
+  id               String         @id @default(cuid())
+  paymentId        String
+  amountCentavos   BigInt
+  reason           String
+  status           ReversalStatus  @default(PROPOSED)
+  createdAt        DateTime        @default(now())
+  confirmedAt      DateTime?
+  payment          Payment         @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId, status])
 }
