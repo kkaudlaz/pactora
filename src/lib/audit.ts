@@ -20,14 +20,15 @@ export async function appendAuditEntry(
   const canonicalPayload = canonicalJson(input.payload);
   const payloadSha256 = sha256(canonicalPayload);
   const previousHash = prior?.eventHash ?? null;
-  const eventHash = sha256(JSON.stringify({ entityType: input.entityType, entityId: input.entityId, eventType: input.eventType, actorMemberId: input.actorMemberId ?? null, payloadSha256, previousHash, idempotencyKey: input.idempotencyKey }));
-  return tx.auditEntry.create({ data: { entityType: input.entityType, entityId: input.entityId, eventType: input.eventType, actorMemberId: input.actorMemberId ?? null, payloadJson: input.payload as Prisma.InputJsonValue, payloadSha256, previousHash, eventHash, idempotencyKey: input.idempotencyKey } });
+  const createdAt = new Date();
+  const eventHash = sha256(JSON.stringify({ entityType: input.entityType, entityId: input.entityId, eventType: input.eventType, actorMemberId: input.actorMemberId ?? null, payloadSha256, previousHash, idempotencyKey: input.idempotencyKey, createdAt: createdAt.toISOString() }));
+  return tx.auditEntry.create({ data: { entityType: input.entityType, entityId: input.entityId, eventType: input.eventType, actorMemberId: input.actorMemberId ?? null, payloadJson: input.payload as Prisma.InputJsonValue, payloadSha256, previousHash, eventHash, idempotencyKey: input.idempotencyKey, createdAt } });
 }
 
 export type AuditIntegrityRecord = {
   sequence: bigint | string | number; entityType: string; entityId: string; eventType: string;
   actorMemberId: string | null; payloadJson: unknown; payloadSha256: string; previousHash: string | null;
-  eventHash: string; idempotencyKey: string;
+  eventHash: string; idempotencyKey: string; createdAt: Date | string;
 };
 
 /** Verify payload digests, event hashes, and continuity in ascending database sequence. */
@@ -37,7 +38,7 @@ export function verifyAuditChain(records: AuditIntegrityRecord[]): { ok: boolean
     const sequence = String(record.sequence);
     const expectedPayloadHash = sha256(canonicalJson(record.payloadJson));
     if (expectedPayloadHash !== record.payloadSha256 || record.previousHash !== previousHash) return { ok: false, checked: index, firstInvalidSequence: sequence };
-    const expectedEventHash = sha256(JSON.stringify({ entityType: record.entityType, entityId: record.entityId, eventType: record.eventType, actorMemberId: record.actorMemberId ?? null, payloadSha256: record.payloadSha256, previousHash: record.previousHash, idempotencyKey: record.idempotencyKey }));
+    const expectedEventHash = sha256(JSON.stringify({ entityType: record.entityType, entityId: record.entityId, eventType: record.eventType, actorMemberId: record.actorMemberId ?? null, payloadSha256: record.payloadSha256, previousHash: record.previousHash, idempotencyKey: record.idempotencyKey, createdAt: new Date(record.createdAt).toISOString() }));
     if (expectedEventHash !== record.eventHash) return { ok: false, checked: Number(sequence) - 1, firstInvalidSequence: sequence };
     previousHash = record.eventHash;
   }
