@@ -2,8 +2,9 @@
 export type Centavos = bigint;
 
 export function parsePhpToCentavos(input: string): Centavos {
-  const normalized = input.trim().replace(/,/g, "");
-  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(normalized)) {
+  const raw = input.trim();
+  const validAmount = /^(?:0|[1-9][0-9]*|[1-9][0-9]{0,2}(?:,[0-9]{3})+)(?:[.][0-9]{1,2})?$/;
+  if (!validAmount.test(raw)) {
     throw new Error("Enter a valid non-negative PHP amount with at most two decimal places.");
   }
   const normalized = raw.replace(/,/g, "");
