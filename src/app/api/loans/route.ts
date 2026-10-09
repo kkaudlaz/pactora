@@ -21,6 +21,7 @@ export async function GET() {
       borrower: { select: { id: true, memberUid: true, displayName: true } },
       lender: { select: { id: true, memberUid: true, displayName: true } },
       payments: { include: { reversals: { select: { amountCentavos: true, status: true } } }, orderBy: { createdAt: "desc" } },
+      approvals: { select: { memberId: true, kind: true, termsVersion: true, payloadHash: true, decision: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -34,7 +35,10 @@ export async function GET() {
       category: loan.category, description: loan.description, principalCentavos: loan.principalCentavos.toString(),
       outstandingCentavos: outstanding.toString(), currency: loan.currency, repaymentTerms: loan.repaymentTerms,
       dueAt: loan.dueAt?.toISOString() ?? null, status: loan.status, termsVersion: loan.termsVersion,
-      createdAt: loan.createdAt.toISOString(), payments: loan.payments.map((payment) => ({
+      createdAt: loan.createdAt.toISOString(),
+      myTermsAccepted: loan.approvals.some((a) => a.memberId === session.memberId && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
+      otherPartyAccepted: loan.approvals.some((a) => a.memberId !== session.memberId && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
+      payments: loan.payments.map((payment) => ({
         id: payment.id, amountCentavos: payment.amountCentavos.toString(), method: payment.method,
         status: payment.status, paidAt: payment.paidAt?.toISOString() ?? null, reference: payment.reference,
         createdAt: payment.createdAt.toISOString(), reversals: payment.reversals.map((reversal) => ({ amountCentavos: reversal.amountCentavos.toString(), status: reversal.status })),
