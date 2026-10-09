@@ -17,7 +17,7 @@ This branch now includes:
 - Integer-centavo arithmetic, idempotency keys, transactional audit entries, and a serialized SHA-256 hash chain.
 - Prisma/PostgreSQL, Vitest tests, local Docker Compose, and GitHub Actions CI.
 
-**Still incomplete:** GCash/cash evidence uploads, signatures, QR revocation UI, member/PIN recovery, full dispute/correction UI, durable shared rate limiting, audit verification tooling, automated database backup/restore tests, and optional blockchain anchoring. This is a local development milestone, not a production-ready financial service. Do not enter real family financial data until the remaining security and privacy work is complete.
+**Still incomplete:** GCash/cash evidence uploads, signatures, member/PIN recovery, full dispute/correction UI, durable shared rate limiting, audit verification tooling, automated database backup/restore tests, and optional blockchain anchoring. This is a local development milestone, not a production-ready financial service. Do not enter real family financial data until the remaining security and privacy work is complete.
 
 ## Stack
 
