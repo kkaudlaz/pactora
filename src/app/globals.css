@@ -20,3 +20,5 @@
 
 .member-status.inactive{background:#f2f4f7;color:#8995a5}.member-action{padding:7px 9px;font-size:9px;white-space:nowrap}.revoke-action{color:#a44850;border-color:#f1d8da}
 @media(max-width:700px){.member-row{flex-wrap:wrap}.member-row-main{flex:1 1 60%}.member-action{flex:1}.member-status{margin-left:43px}}
+
+.audit-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}.audit-heading h2{font:700 16px Manrope,Arial,sans-serif;margin:0 0 7px}.audit-heading .workspace-muted{margin:0;max-width:720px}.audit-result{font-size:11px;line-height:1.6;padding:11px 13px;border-radius:7px;margin:12px 0}.audit-result.good{color:#216c58;background:#eaf7f1;border:1px solid #d5eee3}.audit-result.bad{color:#a43c45;background:#fff0f0;border:1px solid #f2d5d8}@media(max-width:700px){.audit-heading{flex-direction:column}.audit-heading>.secondary-button{width:100%}}
