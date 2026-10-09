@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
   try {
     const payment = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(711772601)`;
-      const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true } });
+      const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityId: true, entityType: true, eventType: true } });
       if (prior) {
-        if (prior.entityType !== "PAYMENT") throw new Error("IDEMPOTENCY_CONFLICT");
+        if (prior.entityType !== "PAYMENT" || prior.eventType !== "PAYMENT_PROPOSED") throw new Error("IDEMPOTENCY_CONFLICT");
         return tx.payment.findUniqueOrThrow({ where: { id: prior.entityId } });
       }
       const loan = await tx.loan.findUnique({ where: { id: parsed.data.loanId }, include: { payments: { include: { reversals: true } } } });
