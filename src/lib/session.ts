@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE = "pactora_session";
 const SESSION_SECONDS = 60 * 60 * 8;
@@ -59,4 +60,13 @@ export function setSessionCookie(response: NextResponse, memberId: string, role:
 export function clearSessionCookie(response: NextResponse): NextResponse {
   response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
   return response;
+}
+
+/** Re-check the live member record on every protected API request so disabled accounts lose access immediately. */
+export async function getAuthenticatedMember() {
+  const session = await getSession();
+  if (!session) return null;
+  const member = await prisma.member.findUnique({ where: { id: session.memberId }, select: { id: true, memberUid: true, displayName: true, role: true, disabledAt: true } });
+  if (!member || member.disabledAt || member.role !== session.role) return null;
+  return { id: member.id, memberUid: member.memberUid, displayName: member.displayName, role: member.role };
 }
