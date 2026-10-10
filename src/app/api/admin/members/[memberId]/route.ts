@@ -17,7 +17,7 @@ export async function GET(_request: Request, context: { params: Promise<{ member
 
   const member = await prisma.member.findFirst({
     where: { id: memberId, disabledAt: null },
-    select: { id: true, memberUid: true, displayName: true, email: true, role: true, createdAt: true,
+    select: { id: true, memberUid: true, displayName: true, email: true, phone: true, role: true, createdAt: true,
       accessGrants: { where: { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true } } },
   });
   if (!member) return NextResponse.json({ error: "Member not found." }, { status: 404 });
@@ -61,7 +61,7 @@ export async function GET(_request: Request, context: { params: Promise<{ member
     select: { sequence: true, entityType: true, entityId: true, eventType: true, actorMemberId: true, createdAt: true, eventHash: true, previousHash: true },
   });
   return NextResponse.json({
-    member: { id: member.id, memberUid: member.memberUid, displayName: member.displayName, email: member.email, role: member.role, createdAt: member.createdAt.toISOString(), hasActiveAccess: member.accessGrants.length > 0 },
+    member: { id: member.id, memberUid: member.memberUid, displayName: member.displayName, email: member.email, phone: member.phone, role: member.role, createdAt: member.createdAt.toISOString(), hasActiveAccess: member.accessGrants.length > 0 },
     loans,
     audit: audit.map((entry) => ({ ...entry, sequence: entry.sequence.toString(), createdAt: entry.createdAt.toISOString() })),
   });
