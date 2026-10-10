@@ -21,6 +21,7 @@ export default function MemberPage() {
   const [reference,setReference]=useState("");
   const [saving,setSaving]=useState(false);
   const [showRepaymentForm,setShowRepaymentForm]=useState(false);
+  const [confirmingPaymentId,setConfirmingPaymentId]=useState<string|null>(null);
 
   const load=useCallback(async()=>{
     setLoading(true);setError("");
@@ -40,9 +41,11 @@ export default function MemberPage() {
   useEffect(()=>{void load();},[load]);
 
   async function confirmPayment(payment:Payment){
-    setError("");setNotice("");
+    if(confirmingPaymentId===payment.id)return;
+    setConfirmingPaymentId(payment.id);setError("");setNotice("");
     try{const response=await fetch(`/api/payments/${payment.id}/confirm`,{method:"POST",headers:{"idempotency-key":crypto.randomUUID()}});const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not confirm payment.");setNotice(data.settled?"Payment confirmed and loan settled.":"Payment acknowledgment recorded.");await load();}
     catch(cause){setError(cause instanceof Error?cause.message:"Could not confirm payment.");}
+    finally{setConfirmingPaymentId(null);}
   }
   async function proposePayments(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(saving||!selectedLoanIds.length)return;setError("");setNotice("");setSaving(true);const failed:string[]=[];let succeeded=0;const successfulIds:string[]=[];
@@ -68,7 +71,7 @@ export default function MemberPage() {
   <div className="section-row"><div><h2>Your loans and agreements</h2><p>Only records where you are the borrower or lender appear here.</p></div></div>
   <div className="member-loan-list">{loans.map((loan)=><article className="member-loan-card" key={loan.id}><div className="member-loan-head"><div><span className="loan-code">{loan.publicCode}</span><h2>{loan.description}</h2><p>{loan.borrower.id===member?.id?"You are the borrower":"You are the lender"} · with {loan.borrower.id===member?.id?loan.lender.displayName:loan.borrower.displayName}</p></div><span className={`status-pill ${loan.status.toLowerCase().replaceAll("_","-")}`}>{loan.status.replaceAll("_"," ")}</span></div><div className="member-loan-stats"><div><small>Original amount</small><strong>{formatPhp(BigInt(loan.principalCentavos))}</strong></div><div><small>Outstanding</small><strong>{formatPhp(BigInt(loan.outstandingCentavos))}</strong></div><div><small>Due date</small><strong>{loan.dueAt?new Date(loan.dueAt).toLocaleDateString():"Not set"}</strong></div></div><div className="terms-summary"><strong>Repayment terms</strong><p>{loan.repaymentTerms}</p></div>
   {(loan.status==="DRAFT"||loan.status==="AWAITING_APPROVAL")&&<div className="approval-panel"><p>Loan activation is temporarily handled by the owner when both parties agree in person. Review the terms together and ask the owner to record that agreement.</p></div>}
-  {loan.payments.length>0&&<div className="payment-history"><strong>Payment history</strong>{loan.payments.map((payment)=><div className="payment-row" key={payment.id}><div><b>{formatPhp(BigInt(payment.amountCentavos))}</b><small>{payment.method.replaceAll("_"," ")} · {new Date(payment.createdAt).toLocaleDateString()}</small></div><span className={`status-pill ${payment.status.toLowerCase().replaceAll("_","-")}`}>{payment.status.replaceAll("_"," ")}</span>{payment.status==="AWAITING_ACKNOWLEDGMENT"&&payment.createdByMemberId!==member?.id&&<button className="secondary-button" onClick={()=>void confirmPayment(payment)}>Confirm payment</button>}</div>)}</div>}
+  {loan.payments.length>0&&<div className="payment-history"><strong>Payment history</strong>{loan.payments.map((payment)=><div className="payment-row" key={payment.id}><div><b>{formatPhp(BigInt(payment.amountCentavos))}</b><small>{payment.method.replaceAll("_"," ")} · {new Date(payment.createdAt).toLocaleDateString()}</small></div><span className={`status-pill ${payment.status.toLowerCase().replaceAll("_","-")}`}>{payment.status.replaceAll("_"," ")}</span>{payment.status==="AWAITING_ACKNOWLEDGMENT"&&payment.createdByMemberId!==member?.id&&<button className="secondary-button" disabled={confirmingPaymentId===payment.id} onClick={()=>void confirmPayment(payment)}>{confirmingPaymentId===payment.id?"Confirming…":"Confirm payment"}</button>}</div>)}</div>}
   </article>)}{loans.length===0&&<div className="empty-state member-empty">No loan records are linked to your member profile yet. Your owner can create a draft agreement for you.</div>}</div>
 
   </>}
