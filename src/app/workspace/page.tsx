@@ -348,6 +348,7 @@ function PaymentReview({loans,ownerId,onConfirm,limit,onViewAll}:{loans:Loan[];o
   </section>;
 }
 function OwnerPaymentEntry({loans,ownerId,onSaved}:{loans:Loan[];ownerId?:string;onSaved:()=>Promise<void>}) {
+  const [memberId,setMemberId]=useState("");
   const [loanId,setLoanId]=useState("");
   const [amount,setAmount]=useState("");
   const [method,setMethod]=useState("CASH");
@@ -357,7 +358,9 @@ function OwnerPaymentEntry({loans,ownerId,onSaved}:{loans:Loan[];ownerId?:string
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
   const eligible=loans.filter((loan)=>loan.status==="ACTIVE"&&(loan.borrower.id===ownerId||loan.lender.id===ownerId));
-  const selected=eligible.find((loan)=>loan.id===loanId);
+  const memberOptions=Array.from(new Map(eligible.map((loan)=>{const member=loan.borrower.id===ownerId?loan.lender:loan.borrower;return [member.id,member]})).values());
+  const memberLoans=eligible.filter((loan)=>memberId && (loan.borrower.id===memberId||loan.lender.id===memberId));
+  const selected=memberLoans.find((loan)=>loan.id===loanId);
   const pending=Boolean(selected?.payments.some((payment)=>payment.status==="AWAITING_ACKNOWLEDGMENT"));
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault(); if(saving||!selected)return;
@@ -374,7 +377,9 @@ function OwnerPaymentEntry({loans,ownerId,onSaved}:{loans:Loan[];ownerId?:string
   return <section className="workspace-card payment-proposal-card"><div className="section-row"><div><h2>Add payment for a borrower</h2><p className="workspace-muted">Use this when both parties are together. The owner can record the payment without the borrower opening their profile.</p></div></div>
     {error&&<div className="workspace-alert error" role="alert">{error}</div>}{notice&&<div className="workspace-alert success" role="status">{notice}</div>}
     {eligible.length===0?<div className="empty-state">No active loans involving the owner are available for payment entry.</div>:<form className="workspace-form loan-form" onSubmit={submit}>
-      <label>Loan<select value={loanId} onChange={(e)=>setLoanId(e.target.value)} required><option value="">Choose a loan…</option>{eligible.map((loan)=><option key={loan.id} value={loan.id}>{loan.publicCode} · {loan.borrower.displayName} · {loan.description}</option>)}</select></label>
+      <label>Member first<select value={memberId} onChange={(e)=>{setMemberId(e.target.value);setLoanId("");}} required><option value="">Choose a member…</option>{memberOptions.map((member)=><option key={member.id} value={member.id}>{member.displayName}</option>)}</select></label>
+      <label>Loan<select value={loanId} onChange={(e)=>setLoanId(e.target.value)} required disabled={!memberId}><option value="">{memberId?"Choose one of this member’s active loans…":"Choose a member first…"}</option>{memberLoans.map((loan)=><option key={loan.id} value={loan.id}>{loan.publicCode} · {loan.description} · Owed {formatPhp(BigInt(loan.outstandingCentavos))} · {loan.status}</option>)}</select></label>
+      {selected&&<div className="form-note form-span"><strong>{selected.description}</strong><br/>Borrower: {selected.borrower.displayName} · Lender: {selected.lender.displayName}<br/>Original amount: {formatPhp(BigInt(selected.principalCentavos))} · Outstanding: {formatPhp(BigInt(selected.outstandingCentavos))}<br/>Due: {selected.dueAt?new Date(selected.dueAt).toLocaleDateString():"Not set"} · Terms: {selected.repaymentTerms}</div>}
       <label>Amount (PHP)<input inputMode="decimal" value={amount} onChange={(e)=>setAmount(e.target.value)} required placeholder="e.g. 500.00"/></label>
       <label>Payment method<select value={method} onChange={(e)=>setMethod(e.target.value)}><option value="CASH">Cash</option><option value="GCASH">GCash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="OTHER">Other</option></select></label>
       <label>Reference {method==="GCASH"||method==="BANK_TRANSFER"?"(required)":"(optional)"}<input value={reference} onChange={(e)=>setReference(e.target.value)} maxLength={200} required={method==="GCASH"||method==="BANK_TRANSFER"} placeholder="Transaction reference"/></label>
