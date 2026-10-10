@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import jsQR from "jsqr";
 import { useRouter } from "next/navigation";
 
 type DetectedCode = { rawValue?: string };
@@ -77,13 +78,20 @@ export default function MemberQrLoginPage() {
     setError("");
     try {
       const bitmap = await createImageBitmap(file);
-      const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-      if (!Detector) throw new Error("QR image decoding is not supported in this browser. Use camera scanning on a supported browser.");
-      const codes = await new Detector({ formats: ["qr_code"] }).detect(bitmap);
-      bitmap.close();
-      const value = codes.find((code) => code.rawValue)?.rawValue;
-      if (!value) throw new Error("No QR code was found in that image. Try a clearer PNG or JPG.");
-      await openQrValue(value);
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("Could not read that QR image. Try another PNG or JPG.");
+        context.drawImage(bitmap, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const decoded = jsQR(pixels.data, pixels.width, pixels.height, { inversionAttempts: "attemptBoth" });
+        if (!decoded?.data) throw new Error("No QR code was found in that image. Try a clearer PNG or JPG.");
+        await openQrValue(decoded.data);
+      } finally {
+        bitmap.close();
+      }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not read that QR image."); }
   }
 
