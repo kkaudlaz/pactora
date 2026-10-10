@@ -52,7 +52,7 @@ export default function WorkspacePage() {
     setLoading(true); setError("");
     try {
       const meResponse = await fetch("/api/auth/me", { cache: "no-store" });
-      if (!meResponse.ok) { router.replace("/login"); return; }
+      if (!meResponse.ok) { router.replace("/"); return; }
       const me = await meResponse.json();
       if (me.member?.role !== "OWNER") { router.replace("/member"); return; }
       setOwner(me.member);
@@ -301,7 +301,7 @@ export default function WorkspacePage() {
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" }); router.replace("/login");
+    try { await fetch("/api/auth/logout", { method: "POST" }); } finally { router.replace("/"); router.refresh(); }
   }
 
   const active = loans.filter((loan) => loan.status === "ACTIVE");
@@ -354,8 +354,9 @@ function OwnerPaymentEntry({loans,ownerId,onSaved}:{loans:Loan[];ownerId?:string
   const memberOptions=Array.from(new Map<string, Member>(eligible.map((loan)=>{const member=loan.borrower.id===ownerId?loan.lender:loan.borrower;return [member.id,member] as const})).values());
   const memberLoans=eligible.filter((loan)=>memberId&&(loan.borrower.id===memberId||loan.lender.id===memberId));
   const selectedLoans=memberLoans.filter((loan)=>selectedLoanIds.includes(loan.id));
-  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(saving||!selectedLoans.length)return;setSaving(true);setError("");setNotice("");const failures:string[]=[];let succeeded=0;
-    for(const loan of selectedLoans){try{const response=await fetch("/api/payments",{method:"POST",headers:{"content-type":"application/json","idempotency-key":crypto.randomUUID()},body:JSON.stringify({loanId:loan.id,amountPhp:amounts[loan.id],method,reference:reference||undefined,note:note||undefined})});const data=await response.json();if(!response.ok)failures.push(loan.publicCode+": "+(data.error||"could not record"));else succeeded++;}catch{failures.push(loan.publicCode+": request failed");}}
+  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(saving||!selectedLoans.length)return;setSaving(true);setError("");setNotice("");const failures:string[]=[];let succeeded=0;const successfulIds:string[]=[];
+    for(const loan of selectedLoans){try{const response=await fetch("/api/payments",{method:"POST",headers:{"content-type":"application/json","idempotency-key":crypto.randomUUID()},body:JSON.stringify({loanId:loan.id,amountPhp:amounts[loan.id],method,reference:reference||undefined,note:note||undefined})});const data=await response.json();if(!response.ok)failures.push(loan.publicCode+": "+(data.error||"could not record"));else{succeeded++;successfulIds.push(loan.id);}}catch{failures.push(loan.publicCode+": request failed");}}
+    setSelectedLoanIds((current)=>current.filter((id)=>!successfulIds.includes(id)));setAmounts((current)=>Object.fromEntries(Object.entries(current).filter(([id])=>!successfulIds.includes(id))));
     setNotice(`${succeeded} payment(s) recorded and awaiting acknowledgment.${failures.length?" Failed: "+failures.join("; "):""}`);
     if(succeeded){setSelectedLoanIds((current)=>current.filter((id)=>failures.some((failure)=>failure.startsWith((selectedLoans.find((loan)=>loan.id===id)?.publicCode||"")+" :".trim()))));await onSaved();}setSaving(false);}
   return <section className="workspace-card payment-proposal-card"><div className="section-row"><div><h2>Record repayments</h2><p className="workspace-muted">Choose a member, select multiple active loans, and enter a separate amount for each. Every payment still requires acknowledgment.</p></div></div>
