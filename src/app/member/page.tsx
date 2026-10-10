@@ -17,7 +17,6 @@ export default function MemberPage() {
   const [notice,setNotice]=useState("");
   const [selectedLoanIds,setSelectedLoanIds]=useState<string[]>([]);
   const [paymentAmounts,setPaymentAmounts]=useState<Record<string,string>>({});
-  const [amount,setAmount]=useState("");
   const [method,setMethod]=useState("GCASH");
   const [reference,setReference]=useState("");
   const [saving,setSaving]=useState(false);
@@ -26,7 +25,7 @@ export default function MemberPage() {
     setLoading(true);setError("");
     try{
       const meResponse=await fetch("/api/auth/me",{cache:"no-store"});
-      if(!meResponse.ok){router.replace("/access");return;}
+      if(!meResponse.ok){router.replace("/");return;}
       const me=await meResponse.json();
       if(me.member?.role==="OWNER"){router.replace("/workspace");return;}
       setMember(me.member);
