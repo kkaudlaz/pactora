@@ -50,19 +50,30 @@ export default function MemberQrLoginPage() {
     setError("");
     try {
       const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-      if (!Detector || !navigator.mediaDevices?.getUserMedia) throw new Error("Camera QR scanning is not supported in this browser. Upload the QR image instead.");
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported in this browser. Upload the QR image instead.");
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       streamRef.current = stream;
       if (!videoRef.current) throw new Error("Camera preview is unavailable.");
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       setCameraActive(true);
-      const detector = new Detector({ formats: ["qr_code"] });
+      const detector = Detector ? new Detector({ formats: ["qr_code"] }) : null;
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d", { willReadFrequently: true });
       const scan = async () => {
         if (!streamRef.current || !videoRef.current || busy) return;
         try {
-          const codes = await detector.detect(videoRef.current);
-          const value = codes.find((code) => code.rawValue)?.rawValue;
+          let value: string | undefined;
+          if (detector) {
+            const codes = await detector.detect(videoRef.current);
+            value = codes.find((code) => code.rawValue)?.rawValue;
+          } else if (context && videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+            value = jsQR(pixels.data, pixels.width, pixels.height, { inversionAttempts: "attemptBoth" })?.data;
+          }
           if (value) { streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; setCameraActive(false); await openQrValue(value); return; }
         } catch { /* Camera frames can fail transiently while autofocus adjusts. */ }
         if (streamRef.current) window.setTimeout(() => void scan(), 250);
