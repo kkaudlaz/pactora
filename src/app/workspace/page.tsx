@@ -325,17 +325,18 @@ export default function WorkspacePage() {
 function PaymentReview({loans,ownerId,onConfirm,limit,onViewAll}:{loans:Loan[];ownerId?:string;onConfirm:(paymentId:string)=>void;limit?:number;onViewAll?:()=>void}) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [loanFilterIds, setLoanFilterIds] = useState<string[]>([]);
   const payments = loans.flatMap((loan) => loan.payments.map((payment) => ({ ...payment, loan }))).sort((a,b) => new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime());
   const pending = payments.filter((p) => p.status === "AWAITING_ACKNOWLEDGMENT").length;
   const filtered = payments.filter((payment) => {
     const haystack = [payment.loan.publicCode,payment.loan.description,payment.reference||"",payment.method,payment.status,payment.createdByMemberId===ownerId?"you":"other party"].join(" ").toLowerCase();
-    return haystack.includes(search.trim().toLowerCase()) && (statusFilter==="ALL" || payment.status===statusFilter);
+    return haystack.includes(search.trim().toLowerCase()) && (statusFilter==="ALL" || payment.status===statusFilter) && (!loanFilterIds.length || loanFilterIds.includes(payment.loan.id));
   });
   const visible = limit ? filtered.slice(0,limit) : filtered;
   return <section className="workspace-card payment-review-card">
     <div className="section-row"><div><h2>Repayments & acknowledgments</h2><p>Pending repayments do not reduce the balance until the other party acknowledges them.</p></div><span className="status-pill">{pending} pending</span></div>
     {payments.length===0 ? <div className="empty-state">No repayment records have been submitted yet.</div> : <>
-      <div className="payment-toolbar"><label className="payment-search"><span aria-hidden="true">⌕</span><input aria-label="Search repayments" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search loan, reference, method…" /></label><select aria-label="Filter repayment status" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}><option value="ALL">All statuses</option><option value="AWAITING_ACKNOWLEDGMENT">Awaiting acknowledgment</option><option value="CONFIRMED">Confirmed</option></select></div>
+      <div className="payment-toolbar"><label className="payment-search"><span aria-hidden="true">⌕</span><input aria-label="Search repayments" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search loan, reference, method…" /></label><select aria-label="Filter repayment status" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}><option value="ALL">All statuses</option><option value="AWAITING_ACKNOWLEDGMENT">Awaiting acknowledgment</option><option value="CONFIRMED">Confirmed</option></select><label className="payment-loan-filter"><span className="sr-only">Filter by one or more loans</span><select aria-label="Filter repayments by multiple loans" multiple value={loanFilterIds} onChange={(e)=>setLoanFilterIds(Array.from(e.target.selectedOptions,(option)=>option.value))}>{loans.map((loan)=><option key={loan.id} value={loan.id}>{loan.publicCode} · {loan.description}</option>)}</select></label></div><p className="workspace-muted payment-filter-hint">Tip: hold Ctrl (Windows) or Command (Mac) to filter by multiple loans.</p>
       {visible.length===0 ? <div className="empty-state">No repayments match those filters.</div> : <div className="table-wrap"><table><thead><tr><th>LOAN</th><th>REPAYMENT</th><th>SUBMITTED</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>{visible.map((payment)=><tr key={payment.id}>
         <td><strong>{payment.loan.publicCode}</strong><small className="table-subline">{payment.loan.description}</small></td>
         <td><strong>{formatPhp(BigInt(payment.amountCentavos))}</strong><small className="table-subline">{payment.method.replaceAll("_"," ")}{payment.reference ? " · Ref: " + payment.reference : ""}</small></td>
