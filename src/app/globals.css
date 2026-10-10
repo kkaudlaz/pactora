@@ -37,3 +37,17 @@
 .member-qr-card{max-width:470px}.member-qr-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}.member-qr-upload{position:relative;overflow:hidden;cursor:pointer}.member-qr-upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.member-camera{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#f7faf8}.member-camera video{display:block;width:100%;max-height:320px;object-fit:cover;border-radius:8px;background:#17201e}.member-camera p{font-size:12px;color:var(--muted);line-height:1.5}.member-owner-link{display:block;margin-top:18px;text-align:center;color:var(--green);font-size:12px;font-weight:700;text-decoration:none}.public-member-note a{color:var(--green);font-weight:700;text-decoration:underline;text-underline-offset:3px}@media(max-width:520px){.member-qr-actions{grid-template-columns:1fr}}
 
 .member-edit-form{grid-column:1/-1;width:100%;padding:16px;margin:8px 0 12px;border:1px solid var(--line);border-radius:12px;background:#f8faf8}.member-edit-actions{display:flex;flex-wrap:wrap;gap:8px}.member-edit-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:650;color:var(--ink)}.member-edit-form input{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:#fff;color:var(--ink);font:inherit}
+
+
+/* Multi-loan repayment selection */
+.payment-selection-list{display:grid;gap:10px;margin-top:12px}
+.payment-selection-row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:14px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.payment-selection-check{display:flex;align-items:flex-start;gap:11px;min-width:0;cursor:pointer}
+.payment-selection-check input{width:17px;height:17px;flex:0 0 auto;margin-top:3px;accent-color:var(--green)}
+.payment-selection-check>span{display:grid;gap:5px;min-width:0}
+.payment-selection-check strong{font-size:13px;line-height:1.45;color:var(--ink)}
+.payment-selection-check small{font-size:11px;line-height:1.5;color:var(--muted)}
+.payment-selection-amount{max-width:320px;margin-left:28px}
+.payment-selection-amount input{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:#fff;color:var(--ink);font:inherit}
+.member-camera[hidden]{display:none!important}
+@media(min-width:760px){.payment-selection-row{grid-template-columns:minmax(0,1fr) minmax(190px,260px);align-items:center}.payment-selection-amount{margin-left:0}}
