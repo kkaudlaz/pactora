@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   findMember: vi.fn(),
   findLoans: vi.fn(),
   findAudit: vi.fn(),
+  findAuditFirst: vi.fn(),
   getAuthenticatedMember: vi.fn(),
 }));
 
@@ -11,7 +12,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     member: { findFirst: mocks.findMember },
     loan: { findMany: mocks.findLoans },
-    auditEntry: { findMany: mocks.findAudit },
+    auditEntry: { findFirst: mocks.findAuditFirst, findMany: mocks.findAudit },
   },
 }));
 
@@ -24,6 +25,7 @@ import { GET } from "./route";
 describe("GET /api/admin/members/[memberId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.findAuditFirst.mockResolvedValue({ id: "ownership-entry" });
   });
 
   it("rejects unauthenticated requests before querying member history", async () => {
