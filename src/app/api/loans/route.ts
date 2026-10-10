@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     prisma.member.findFirst({ where: { id: parsed.data.lenderId, disabledAt: null }, select: { id: true } }),
   ]);
   if (!borrower || !lender) return NextResponse.json({ error: "Borrower and lender must be active members." }, { status: 400 });
-  const terms = { borrowerId: borrower.id, lenderId: lender.id, category: parsed.data.category, description: parsed.data.description, principalCentavos: principalCentavos.toString(), currency: "PHP", repaymentTerms: parsed.data.repaymentTerms, dueAt: parsed.data.dueAt ?? null, termsVersion: 1 };
+  const terms = { borrowerId: borrower.id, lenderId: lender.id, category: parsed.data.category, description: parsed.data.description, principalCentavos: principalCentavos.toString(), currency: "PHP", repaymentTerms: parsed.data.repaymentTerms, borrowedAt: parsed.data.borrowedAt ?? new Date().toISOString(), dueAt: parsed.data.dueAt ?? null, termsVersion: 1 };
   const termsHash = createHash("sha256").update(JSON.stringify(terms)).digest("hex");
   const publicCode = `PT-${randomUUID().slice(0, 8).toUpperCase()}`;
   try {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       const created = await tx.loan.create({ data: {
         publicCode, borrowerId: borrower.id, lenderId: lender.id, category: parsed.data.category,
         description: parsed.data.description, principalCentavos, repaymentTerms: parsed.data.repaymentTerms,
-        dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null, status: "DRAFT", termsVersion: 1, termsHash,
+        borrowedAt: parsed.data.borrowedAt ? new Date(parsed.data.borrowedAt) : new Date(), dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null, status: "DRAFT", termsVersion: 1, termsHash,
       } });
       await appendAuditEntry(tx, { entityType: "LOAN", entityId: created.id, eventType: "LOAN_DRAFT_CREATED", actorMemberId: session.id, idempotencyKey, payload: { publicCode, ...terms, termsHash } });
       return created;
