@@ -63,7 +63,8 @@ export default function MemberHistoryPage() {
       ctx.fillStyle = "#163d32"; ctx.font = "bold 22px Arial"; ctx.fillText(loan.publicCode + " · " + loan.status.replaceAll("_", " "), 90, y + 2);
       ctx.fillStyle = "#17201e"; ctx.font = "20px Arial"; ctx.fillText(loan.description.slice(0, 78), 90, y + 34);
       ctx.fillStyle = "#53635b"; ctx.font = "18px Arial"; ctx.fillText("Principal " + formatPhp(BigInt(loan.principalCentavos)) + " · Outstanding " + formatPhp(BigInt(loan.outstandingCentavos)), 90, y + 64);
-      const confirmedAmount = loan.payments.filter((p) => p.status === "CONFIRMED").reduce((sum, p) => sum + BigInt(p.amountCentavos), 0n);\n      ctx.fillText("Confirmed paid: " + formatPhp(confirmedAmount) + " · Payments: " + loan.payments.length + " · Due: " + (loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "Not set"), 90, y + 88);
+      const confirmedAmount = loan.payments.filter((p) => p.status === "CONFIRMED").reduce((sum, p) => sum + BigInt(p.amountCentavos), 0n);
+      ctx.fillText("Confirmed paid: " + formatPhp(confirmedAmount) + " · Payments: " + loan.payments.length + " · Due: " + (loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "Not set"), 90, y + 88);
       y += 150;
     }
     ctx.fillStyle = "#718079"; ctx.font = "16px Arial"; ctx.fillText("Based on Pactora records at generation time. Pending repayments are not treated as confirmed.", 76, height - 70);
