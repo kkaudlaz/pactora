@@ -10,6 +10,7 @@ export const createLoanDraftSchema = z.object({
   description: z.string().trim().min(1).max(500),
   amountPhp: z.string().trim().regex(/^(?:0|[1-9][0-9]*)(?:[.][0-9]{1,2})?$/, "Use a PHP amount with at most two decimal places."),
   repaymentTerms: z.string().trim().min(1).max(2000),
+  borrowedAt: z.string().datetime().optional(),
   dueAt: z.string().datetime().optional(),
 }).refine((value) => value.borrowerId !== value.lenderId, {
   message: "Borrower and lender must be different members.",
