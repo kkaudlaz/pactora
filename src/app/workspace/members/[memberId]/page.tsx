@@ -18,11 +18,22 @@ export default function MemberHistoryPage() {
   const [data, setData] = useState<Details | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [savingPayments, setSavingPayments] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const response = await fetch("/api/admin/members/" + encodeURIComponent(params.memberId), { cache: "no-store" });
+      const [meResponse, response] = await Promise.all([fetch("/api/auth/me", { cache: "no-store" }), fetch("/api/admin/members/" + encodeURIComponent(params.memberId), { cache: "no-store" })]);
+      const me = meResponse.ok ? await meResponse.json() : null;
+      if (!me?.member?.id) { router.replace("/"); return; }
+      setOwnerId(me.member.id);
       const result = await response.json();
       if (!response.ok) {
         if (response.status === 401) { router.replace("/"); return; }
@@ -40,6 +51,25 @@ export default function MemberHistoryPage() {
   const outstanding = active.reduce((sum, loan) => sum + BigInt(loan.outstandingCentavos), 0n);
   const pendingPayments = loans.flatMap((loan) => loan.payments).filter((payment) => payment.status === "AWAITING_ACKNOWLEDGMENT");
   const confirmedPayments = loans.flatMap((loan) => loan.payments).filter((payment) => payment.status === "CONFIRMED");
+  const payableLoans = loans.filter((loan) => loan.status === "ACTIVE" && (loan.borrower.id === ownerId || loan.lender.id === ownerId) && (loan.borrower.id === data?.member.id || loan.lender.id === data?.member.id));
+  async function recordSelectedPayments(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (savingPayments || !selectedLoanIds.length) return;
+    setSavingPayments(true); setError(""); setPaymentNotice("");
+    const successfulIds: string[] = []; const failures: string[] = [];
+    for (const loanId of selectedLoanIds) {
+      const loan = payableLoans.find((item) => item.id === loanId);
+      try {
+        const response = await fetch("/api/payments", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ loanId, amountPhp: paymentAmounts[loanId], method: paymentMethod, reference: paymentReference || undefined, note: paymentNote || undefined }) });
+        const result = await response.json();
+        if (!response.ok) failures.push((loan?.publicCode || loanId) + ": " + (result.error || "could not record payment")); else successfulIds.push(loanId);
+      } catch { failures.push((loan?.publicCode || loanId) + ": request failed"); }
+    }
+    setSelectedLoanIds((current) => current.filter((id) => !successfulIds.includes(id)));
+    setPaymentAmounts((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !successfulIds.includes(id))));
+    setPaymentNotice(successfulIds.length + " payment(s) recorded and awaiting acknowledgment." + (failures.length ? " Failed: " + failures.join("; ") : ""));
+    setSavingPayments(false); if (successfulIds.length) await load();
+  }
+
 
   function downloadStatementImage() {
     if (!data) return;
@@ -84,6 +114,18 @@ export default function MemberHistoryPage() {
           <div className="member-loan-stats"><div><small>Member ID</small><strong>{data.member.memberUid}</strong></div><div><small>Email</small><strong>{data.member.email || "Not provided"}</strong></div><div><small>Joined</small><strong>{new Date(data.member.createdAt).toLocaleDateString()}</strong></div></div>
         </section>
         <div className="stats-grid"><div className="stat-card"><div className="stat-top">All loan records</div><strong className="stat-value">{loans.length}</strong><div className="stat-note">Borrower and lender roles</div></div><div className="stat-card"><div className="stat-top">Active outstanding</div><strong className="stat-value">{formatPhp(outstanding)}</strong><div className="stat-note">Active loans only; pending payments excluded</div></div><div className="stat-card"><div className="stat-top">Pending repayments</div><strong className="stat-value">{pendingPayments.length}</strong><div className="stat-note">Awaiting the other party&apos;s acknowledgment</div></div><div className="stat-card"><div className="stat-top">Confirmed repayments</div><strong className="stat-value">{confirmedPayments.length}</strong><div className="stat-note">Confirmed records across all loans</div></div></div>
+        {payableLoans.length > 0 && <section className="workspace-card payment-proposal-card"><div className="section-row"><div><h2>Record repayment for this member</h2><p className="workspace-muted">Select one or more active loans and enter a separate amount for each. Each payment remains pending until the other party acknowledges it.</p></div></div>
+          {paymentNotice && <div className="workspace-alert success" role="status">{paymentNotice}</div>}
+          <form className="workspace-form loan-form" onSubmit={recordSelectedPayments}>
+            <div className="form-span"><div className="section-row"><strong>Choose loans</strong><div className="table-actions"><button type="button" className="text-button" onClick={() => setSelectedLoanIds(payableLoans.filter((loan) => !loan.payments.some((p) => p.status === "AWAITING_ACKNOWLEDGMENT")).map((loan) => loan.id))}>Select available</button><button type="button" className="text-button" onClick={() => setSelectedLoanIds([])}>Clear</button></div></div>
+              <div className="payment-selection-list">{payableLoans.map((loan) => { const pending = loan.payments.some((p) => p.status === "AWAITING_ACKNOWLEDGMENT"); return <div className="payment-selection-row" key={loan.id}><label className="payment-selection-check"><input type="checkbox" checked={selectedLoanIds.includes(loan.id)} disabled={pending} onChange={(e) => setSelectedLoanIds((current) => e.target.checked ? [...current, loan.id] : current.filter((id) => id !== loan.id))}/><span><strong>{loan.publicCode} · {loan.description}</strong><small>{loan.borrower.displayName} ↔ {loan.lender.displayName}</small><small>Outstanding: {formatPhp(BigInt(loan.outstandingCentavos))} · Due {loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "not set"}{pending ? " · Payment awaiting acknowledgment" : ""}</small></span></label>{selectedLoanIds.includes(loan.id) && <label className="payment-selection-amount">Payment amount (PHP)<input inputMode="decimal" value={paymentAmounts[loan.id] || ""} onChange={(e) => setPaymentAmounts((current) => ({ ...current, [loan.id]: e.target.value }))} required placeholder="e.g. 500.00"/></label>}</div>; })}</div>
+            </div>
+            <label>Payment method<select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="CASH">Cash</option><option value="GCASH">GCash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="OTHER">Other</option></select></label>
+            <label>Reference {paymentMethod === "GCASH" || paymentMethod === "BANK_TRANSFER" ? "(required)" : "(optional)"}<input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} maxLength={200} required={paymentMethod === "GCASH" || paymentMethod === "BANK_TRANSFER"} placeholder="Transaction reference"/></label>
+            <label className="form-span">Notes (optional)<textarea value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} maxLength={1000} rows={2} placeholder="Optional repayment context"/></label>
+            <button className="primary-button form-span" type="submit" disabled={savingPayments || !selectedLoanIds.length || selectedLoanIds.some((id) => !paymentAmounts[id]?.trim())}>{savingPayments ? "Recording payments…" : "Record " + selectedLoanIds.length + " selected payment(s)"}</button>
+          </form>
+        </section>}
         <div className="section-row"><div><h2>Loans and agreements</h2><p>Each loan includes its complete repayment history and available approvals.</p></div></div>
         {loans.map((loan) => <article className="member-loan-card" key={loan.id}>
           <div className="member-loan-head"><div><span className="loan-code">{loan.publicCode}</span><h2>{loan.description}</h2><p>{loan.borrower.displayName} → {loan.lender.displayName}</p></div><span className={"status-pill " + loan.status.toLowerCase().replaceAll("_","-")}>{loan.status.replaceAll("_"," ")}</span></div>
