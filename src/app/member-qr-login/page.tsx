@@ -79,7 +79,7 @@ export default function MemberQrLoginPage() {
         if (streamRef.current) window.setTimeout(() => void scan(), 250);
       };
       void scan();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to open the camera."); }
+    } catch (cause) { streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; setCameraActive(false); const name = cause instanceof DOMException ? cause.name : ""; const message = name === "NotAllowedError" ? "Camera permission was denied. Allow camera access for this site, or upload the QR image instead." : name === "NotFoundError" ? "No camera was found on this device. Upload the QR image instead." : cause instanceof Error ? cause.message : "Unable to open the camera. Check browser camera permissions or upload the QR image instead."; setError(message); }
   }
 
   async function uploadQr(event: React.ChangeEvent<HTMLInputElement>) {
