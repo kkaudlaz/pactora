@@ -56,6 +56,7 @@ model Member {
   memberUid      String   @unique @default(cuid())
   displayName    String
   email          String?    @unique
+  phone          String?
   passwordHash   String?
   role           MemberRole @default(MEMBER)
   pinHash        String?
@@ -66,6 +67,7 @@ model Member {
   lenderLoans    Loan[]   @relation("LenderLoans")
   approvals      Approval[]
   accessGrants   AccessGrant[]
+  personalPurchases PersonalPurchase[]
 }
 
 model Loan {
@@ -78,6 +80,7 @@ model Loan {
   principalCentavos BigInt
   currency       String       @default("PHP")
   repaymentTerms String
+  borrowedAt     DateTime     @default(now())
   dueAt          DateTime?
   status         LoanStatus   @default(DRAFT)
   termsVersion   Int          @default(1)
@@ -204,4 +207,43 @@ model AuditEntry {
 
   @@index([entityType, entityId, createdAt])
   @@index([createdAt])
+}
+
+
+enum PersonalPurchaseType {
+  CREDIT_CARD
+  INSTALLMENT
+}
+
+model PersonalPurchase {
+  id                    String               @id @default(cuid())
+  ownerId               String
+  purchaseType          PersonalPurchaseType
+  category              String
+  description           String
+  merchant              String?
+  totalAmountCentavos   BigInt
+  downPaymentCentavos   BigInt               @default(0)
+  installmentCount      Int?
+  statementDate         DateTime?
+  dueAt                 DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  owner                 Member               @relation(fields: [ownerId], references: [id])
+  payments              PersonalPurchasePayment[]
+
+  @@index([ownerId, createdAt])
+  @@index([ownerId, dueAt])
+}
+
+model PersonalPurchasePayment {
+  id                  String           @id @default(cuid())
+  purchaseId          String
+  amountCentavos      BigInt
+  paidAt              DateTime         @default(now())
+  note                String?
+  createdAt           DateTime         @default(now())
+  purchase            PersonalPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId, paidAt])
 }

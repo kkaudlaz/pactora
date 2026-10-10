@@ -6,7 +6,7 @@ import { setSessionCookie } from "@/lib/session";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Compatibility endpoint: member PIN checks are temporarily disabled; the QR token remains required. */
+/** Temporary convenience mode: the personal QR is the member's bearer credential. */
 export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
