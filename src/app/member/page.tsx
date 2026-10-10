@@ -38,11 +38,6 @@ export default function MemberPage() {
   },[router]);
   useEffect(()=>{void load();},[load]);
 
-  async function approve(loan:Loan){
-    setError("");setNotice("");
-    try{const response=await fetch(`/api/loans/${loan.id}/approve`,{method:"POST",headers:{"idempotency-key":crypto.randomUUID()}});const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not approve these terms.");setNotice(data.loan.status==="ACTIVE"?"Both parties have approved. The loan is now active.":"Your approval is recorded. The other party must approve the same terms before the loan becomes active.");await load();}
-    catch(cause){setError(cause instanceof Error?cause.message:"Could not approve these terms.");}
-  }
   async function confirmPayment(payment:Payment){
     setError("");setNotice("");
     try{const response=await fetch(`/api/payments/${payment.id}/confirm`,{method:"POST",headers:{"idempotency-key":crypto.randomUUID()}});const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not confirm payment.");setNotice(data.settled?"Payment confirmed and loan settled.":"Payment acknowledgment recorded.");await load();}
