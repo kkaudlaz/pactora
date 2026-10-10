@@ -33,7 +33,7 @@ export default function MyPurchasesPage() {
     try {
       const response = await fetch("/api/my-purchases", { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) { if (response.status === 401) { router.replace("/login"); return; } if (response.status === 403) { router.replace("/member"); return; } throw new Error(data.error || "Could not load your personal purchase tracker."); }
+      if (!response.ok) { if (response.status === 401) { router.replace("/"); return; } if (response.status === 403) { router.replace("/member"); return; } throw new Error(data.error || "Could not load your personal purchase tracker."); }
       setPurchases(data.purchases);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load purchases."); }
     finally { setLoading(false); }
