@@ -18,7 +18,7 @@ export default function MemberQrLoginPage() {
   const [cameraSupported, setCameraSupported] = useState(false);
 
   useEffect(() => {
-    setCameraSupported(Boolean(navigator.mediaDevices?.getUserMedia && "BarcodeDetector" in window));
+    setCameraSupported(typeof navigator !== "undefined" && Boolean(navigator.mediaDevices) && "BarcodeDetector" in window);
     return () => streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
