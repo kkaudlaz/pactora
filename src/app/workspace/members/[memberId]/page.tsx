@@ -76,7 +76,6 @@ export default function MemberHistoryPage() {
     if (!data) return;
     const canvas = document.createElement("canvas");
     const width = 1200;
-    const lineHeight = 38;
     const height = Math.max(620, 360 + loans.length * 150);
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext("2d");
