@@ -78,6 +78,7 @@ model Loan {
   principalCentavos BigInt
   currency       String       @default("PHP")
   repaymentTerms String
+  borrowedAt     DateTime     @default(now())
   dueAt          DateTime?
   status         LoanStatus   @default(DRAFT)
   termsVersion   Int          @default(1)
