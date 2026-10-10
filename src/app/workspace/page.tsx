@@ -358,7 +358,7 @@ function OwnerPaymentEntry({loans,ownerId,onSaved}:{loans:Loan[];ownerId?:string
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
   const eligible=loans.filter((loan)=>loan.status==="ACTIVE"&&(loan.borrower.id===ownerId||loan.lender.id===ownerId));
-  const memberOptions=Array.from(new Map(eligible.map((loan)=>{const member=loan.borrower.id===ownerId?loan.lender:loan.borrower;return [member.id,member]})).values());
+  const memberOptions=Array.from(new Map<string, Member>(eligible.map((loan)=>{const member=loan.borrower.id===ownerId?loan.lender:loan.borrower;return [member.id,member] as const})).values());
   const memberLoans=eligible.filter((loan)=>memberId && (loan.borrower.id===memberId||loan.lender.id===memberId));
   const selected=memberLoans.find((loan)=>loan.id===loanId);
   const pending=Boolean(selected?.payments.some((payment)=>payment.status==="AWAITING_ACKNOWLEDGMENT"));
