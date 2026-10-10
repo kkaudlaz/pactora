@@ -12,7 +12,8 @@ const createMemberSchema = z.object({ displayName: z.string().trim().min(2).max(
 export async function GET() {
   const session = await getAuthenticatedMember();
   if (!session || session.role !== "OWNER") return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  const members = await prisma.member.findMany({ where: { disabledAt: null }, orderBy: { createdAt: "desc" }, select: { id: true, memberUid: true, displayName: true, email: true, role: true, createdAt: true, accessGrants: { where: { revokedAt: null, expiresAt: { gt: new Date() } }, select: { id: true } } } });
+  const ownedMembers = await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "MEMBER", eventType: "MEMBER_CREATED" }, select: { entityId: true } });
+  const members = await prisma.member.findMany({ where: { id: { in: ownedMembers.map((entry) => entry.entityId) }, disabledAt: null }, orderBy: { createdAt: "desc" }, select: { id: true, memberUid: true, displayName: true, email: true, role: true, createdAt: true, accessGrants: { where: { revokedAt: null, expiresAt: { gt: new Date() } }, select: { id: true } } } });
   return NextResponse.json({ members: members.map(({ accessGrants, ...member }) => ({ ...member, hasActiveAccess: accessGrants.length > 0 })) });
 }
 
