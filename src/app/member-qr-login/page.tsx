@@ -19,7 +19,7 @@ export default function MemberQrLoginPage() {
   const [cameraSupported, setCameraSupported] = useState(false);
 
   useEffect(() => {
-    setCameraSupported(typeof navigator !== "undefined" && Boolean(navigator.mediaDevices) && "BarcodeDetector" in window);
+    setCameraSupported(typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia));
     return () => streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
@@ -117,7 +117,7 @@ export default function MemberQrLoginPage() {
       <button className="primary-button auth-submit" type="button" onClick={() => void scanCamera()} disabled={busy || cameraActive}>Scan with camera</button>
       <label className="secondary-button member-qr-upload">Upload QR image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadQr(event)} disabled={busy} /></label>
     </div>
-    {cameraActive && <div className="member-camera"><video ref={videoRef} playsInline muted /><p>Point the camera at the personal Pactora QR code.</p><button className="secondary-button" type="button" onClick={stopCamera}>Stop camera</button></div>}
+    <div className="member-camera" hidden={!cameraActive}><video ref={videoRef} playsInline muted /><p>Point the camera at the personal Pactora QR code.</p><button className="secondary-button" type="button" onClick={stopCamera}>Stop camera</button></div>
     {busy && <div className="workspace-loading">Verifying QR and opening profile…</div>}
     {!cameraSupported && <p className="auth-footnote">If camera scanning is unavailable, upload the QR image instead. Camera access requires HTTPS or localhost.</p>}
     <p className="auth-footnote">Your QR is a private access key. Anyone who has it may open the associated member profile.</p>
