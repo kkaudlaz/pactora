@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatPhp } from "@/lib/money";
 
@@ -52,7 +52,7 @@ export default function MemberHistoryPage() {
   const pendingPayments = loans.flatMap((loan) => loan.payments).filter((payment) => payment.status === "AWAITING_ACKNOWLEDGMENT");
   const confirmedPayments = loans.flatMap((loan) => loan.payments).filter((payment) => payment.status === "CONFIRMED");
   const payableLoans = loans.filter((loan) => loan.status === "ACTIVE" && (loan.borrower.id === ownerId || loan.lender.id === ownerId) && (loan.borrower.id === data?.member.id || loan.lender.id === data?.member.id));
-  async function recordSelectedPayments(event: React.FormEvent<HTMLFormElement>) {
+  async function recordSelectedPayments(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (savingPayments || !selectedLoanIds.length) return;
     setSavingPayments(true); setError(""); setPaymentNotice("");
     const successfulIds: string[] = []; const failures: string[] = [];
