@@ -41,10 +41,41 @@ export default function MemberHistoryPage() {
   const pendingPayments = loans.flatMap((loan) => loan.payments).filter((payment) => payment.status === "AWAITING_ACKNOWLEDGMENT");
   const confirmedPayments = loans.flatMap((loan) => loan.payments).filter((payment) => payment.status === "CONFIRMED");
 
+  function downloadStatementImage() {
+    if (!data) return;
+    const canvas = document.createElement("canvas");
+    const width = 1200;
+    const lineHeight = 38;
+    const height = Math.max(620, 360 + loans.length * 150);
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { setError("Could not prepare the statement image."); return; }
+    ctx.fillStyle = "#f2f5f1"; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.roundRect(36, 36, width - 72, height - 72, 28); ctx.fill();
+    ctx.fillStyle = "#163d32"; ctx.font = "bold 42px Arial"; ctx.fillText("pactora", 76, 104);
+    ctx.fillStyle = "#718079"; ctx.font = "18px Arial"; ctx.fillText("LOAN STATEMENT · GENERATED " + new Date().toLocaleString(), 76, 140);
+    ctx.fillStyle = "#17201e"; ctx.font = "bold 32px Arial"; ctx.fillText(data.member.displayName, 76, 202);
+    ctx.fillStyle = "#53635b"; ctx.font = "20px Arial"; ctx.fillText("Member ID: " + data.member.memberUid, 76, 238);
+    ctx.font = "bold 23px Arial"; ctx.fillStyle = "#163d32"; ctx.fillText("All records: " + loans.length + " · Active outstanding: " + formatPhp(outstanding), 76, 290);
+    let y = 350;
+    for (const loan of loans) {
+      ctx.fillStyle = "#eaf2ed"; ctx.beginPath(); ctx.roundRect(68, y - 28, width - 136, 122, 16); ctx.fill();
+      ctx.fillStyle = "#163d32"; ctx.font = "bold 22px Arial"; ctx.fillText(loan.publicCode + " · " + loan.status.replaceAll("_", " "), 90, y + 2);
+      ctx.fillStyle = "#17201e"; ctx.font = "20px Arial"; ctx.fillText(loan.description.slice(0, 78), 90, y + 34);
+      ctx.fillStyle = "#53635b"; ctx.font = "18px Arial"; ctx.fillText("Principal " + formatPhp(BigInt(loan.principalCentavos)) + " · Outstanding " + formatPhp(BigInt(loan.outstandingCentavos)), 90, y + 64);
+      ctx.fillText("Payments: " + loan.payments.length + " · Confirmed: " + loan.payments.filter((p) => p.status === "CONFIRMED").length + " · Due: " + (loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "Not set"), 90, y + 88);
+      y += 150;
+    }
+    ctx.fillStyle = "#718079"; ctx.font = "16px Arial"; ctx.fillText("Based on Pactora records at generation time. Pending repayments are not treated as confirmed.", 76, height - 70);
+    const link = document.createElement("a");
+    const safeName = data.member.displayName.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "member";
+    link.download = "pactora-loan-statement-" + safeName + ".png"; link.href = canvas.toDataURL("image/png"); link.click();
+  }
+
   return <main className="workspace-shell">
     <header className="workspace-header"><a className="brand" href="/workspace"><span className="brand-mark">P</span><span><strong>pactora</strong><small>PRIVATE LEDGER</small></span></a><div className="workspace-head-right"><span className="secure-indicator"><i/> Owner workspace</span><button className="secondary-button" onClick={() => router.push("/workspace")}>Back to workspace</button></div></header>
     <div className="member-content">
-      <div className="page-heading"><div><div className="eyebrow">MEMBER DIRECTORY · HISTORY</div><h1>{data?.member.displayName || (loading ? "Loading member…" : "Member history")}</h1><p>Loans, repayment activity, approvals, and audit events for this member.</p></div><button className="secondary-button" onClick={() => void load()}>↻ Refresh</button></div>
+      <div className="page-heading"><div><div className="eyebrow">MEMBER DIRECTORY · HISTORY</div><h1>{data?.member.displayName || (loading ? "Loading member…" : "Member history")}</h1><p>Loans, repayment activity, approvals, and audit events for this member.</p></div><div className="table-actions"><button className="secondary-button" onClick={downloadStatementImage} disabled={!data}>Download statement PNG</button><button className="secondary-button" onClick={() => void load()}>↻ Refresh</button></div></div>
       {error && <div className="workspace-alert error" role="alert">{error}</div>}
       {loading && <div className="workspace-loading">Loading member history…</div>}
       {!loading && data && <>
