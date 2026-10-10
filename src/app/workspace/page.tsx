@@ -79,22 +79,96 @@ export default function WorkspacePage() {
       if (!(source instanceof SVGSVGElement)) throw new Error("QR image is not ready yet.");
       const svg = source.cloneNode(true) as SVGSVGElement;
       svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-      svg.setAttribute("width", "500"); svg.setAttribute("height", "500"); svg.setAttribute("viewBox", "0 0 190 190");
+      // Preserve the QR generator's original viewBox: changing it stretches or crops the code.
+      svg.setAttribute("width", "600");
+      svg.setAttribute("height", "600");
+      const serialized = new XMLSerializer().serializeToString(svg);
       const image = new Image();
       image.onload = () => {
-        const canvas = document.createElement("canvas"); canvas.width = 600; canvas.height = 690;
+        const canvas = document.createElement("canvas");
+        canvas.width = 1000;
+        canvas.height = 1250;
         const ctx = canvas.getContext("2d");
         if (!ctx) { setError("Could not prepare the QR download."); return; }
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(image, 50, 35, 500, 500);
-        ctx.fillStyle = "#17201e"; ctx.textAlign = "center"; ctx.font = "bold 30px Arial, sans-serif";
-        ctx.fillText(memberAccess.displayName, 300, 590, 540);
-        ctx.fillStyle = "#66736e"; ctx.font = "16px Arial, sans-serif"; ctx.fillText("PACTORA · PERSONAL MEMBER QR", 300, 630);
-        const link = document.createElement("a"); link.download = "pactora-qr-" + memberAccess.displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".png"; link.href = canvas.toDataURL("image/png"); link.click();
+
+        // Clean, print-ready card with generous spacing and a high-resolution QR.
+        ctx.fillStyle = "#f2f5f1";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.roundRect(55, 55, 890, 1140, 34);
+        ctx.fill();
+        ctx.strokeStyle = "#dce5de";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(55, 55, 890, 1140, 34);
+        ctx.stroke();
+
+        ctx.fillStyle = "#163d32";
+        ctx.beginPath();
+        ctx.roundRect(100, 100, 64, 64, 16);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 42px Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("P", 132, 133);
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#163d32";
+        ctx.font = "bold 39px Arial, sans-serif";
+        ctx.fillText("pactora", 185, 130);
+        ctx.fillStyle = "#718079";
+        ctx.font = "17px Arial, sans-serif";
+        ctx.fillText("PRIVATE MEMBER RECORD", 185, 158);
+
+        ctx.fillStyle = "#eaf2ed";
+        ctx.beginPath();
+        ctx.roundRect(120, 220, 760, 710, 24);
+        ctx.fill();
+
+        // Draw QR on a pure white quiet-zone background to maximize scanner reliability.
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.roundRect(230, 270, 540, 540, 18);
+        ctx.fill();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(image, 250, 290, 500, 500);
+        ctx.imageSmoothingEnabled = true;
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#17201e";
+        ctx.font = "bold 43px Arial, sans-serif";
+        const name = memberAccess.displayName.trim();
+        ctx.fillText(name, 500, 865, 700);
+        ctx.fillStyle = "#718079";
+        ctx.font = "20px Arial, sans-serif";
+        ctx.fillText("PERSONAL MEMBER QR", 500, 905);
+
+        ctx.strokeStyle = "#e4eae5";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(130, 990);
+        ctx.lineTo(870, 990);
+        ctx.stroke();
+        ctx.fillStyle = "#53635b";
+        ctx.font = "20px Arial, sans-serif";
+        ctx.fillText("Scan to open this member's Pactora profile", 500, 1040);
+        ctx.fillStyle = "#8a9690";
+        ctx.font = "16px Arial, sans-serif";
+        ctx.fillText("Keep this QR private. Anyone with the link may access the profile.", 500, 1080, 760);
+        ctx.fillText("PACTORA  •  PRIVATE LEDGER", 500, 1140);
+
+        const link = document.createElement("a");
+        const safeName = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "member";
+        link.download = "pactora-member-qr-" + safeName + ".png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
       };
       image.onerror = () => setError("Could not render the QR download. Try again.");
-      image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not download the QR image."); }
+      image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(serialized);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not download the QR image.");
+    }
   }
 
   async function createLoan(event: FormEvent<HTMLFormElement>) {
