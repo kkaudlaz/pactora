@@ -5,7 +5,7 @@
   "description": "Private family-and-friends financial ledger",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -19,7 +19,8 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "zod": "^4.1.5",
-    "qrcode.react": "^4.2.0"
+    "qrcode.react": "^4.2.0",
+    "jsqr": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",
