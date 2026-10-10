@@ -30,7 +30,7 @@ export default function HomePage() {
             <Link className="public-primary" href="/login">Sign in to Pactora <span aria-hidden="true">→</span></Link>
             <a className="public-secondary" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
           </div>
-          <p className="public-member-note"><span aria-hidden="true">⌑</span> A member? Open the personal QR link shared with you by the workspace owner.</p>
+          <div className="public-member-note"><span aria-hidden="true">⌑</span><span>A member? <Link href="/member-qr-login">Scan or upload your personal QR code</Link>, or open the QR link shared by the workspace owner.</span></div>
         </div>
 
         <div className="public-ledger-art" aria-label="Illustration of a loan agreement and repayment ledger">
@@ -66,7 +66,7 @@ export default function HomePage() {
 
       <section className="public-access-panel">
         <div><div className="public-eyebrow">MADE FOR SHARED RESPONSIBILITY</div><h2>Everyone should know<br />what has been agreed.</h2><p>Pactora keeps the agreement and its repayment history connected, so both parties can refer to the same record.</p></div>
-        <div className="public-access-actions"><Link className="public-primary" href="/login">Open owner workspace <span aria-hidden="true">→</span></Link><p>Members should use their personal QR access link and PIN.</p></div>
+        <div className="public-access-actions"><Link className="public-primary" href="/login">Open owner workspace <span aria-hidden="true">→</span></Link><p>Members can open their profile by scanning or uploading their personal QR code.</p></div>
       </section>
 
       <footer className="public-footer"><Link className="brand public-footer-brand" href="/"><span className="brand-mark">P</span><span><strong>pactora</strong><small>PRIVATE LEDGER</small></span></Link><p>Personal records, handled with care.</p><Link href="/login">Owner sign in ↗</Link></footer>
