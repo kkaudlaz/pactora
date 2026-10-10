@@ -12,6 +12,9 @@ export async function GET(_request: Request, context: { params: Promise<{ member
   const { memberId } = await context.params;
   if (!memberId || memberId.length > 128) return NextResponse.json({ error: "Invalid member." }, { status: 400 });
 
+  const ownership = await prisma.auditEntry.findFirst({ where: { actorMemberId: session.id, entityType: "MEMBER", entityId: memberId, eventType: "MEMBER_CREATED" }, select: { id: true } });
+  if (!ownership) return NextResponse.json({ error: "Member not found." }, { status: 404 });
+
   const member = await prisma.member.findFirst({
     where: { id: memberId, disabledAt: null },
     select: { id: true, memberUid: true, displayName: true, email: true, role: true, createdAt: true,
