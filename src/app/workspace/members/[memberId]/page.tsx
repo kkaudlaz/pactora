@@ -8,7 +8,7 @@ type Approval = { id: string; kind: string; decision: string; termsVersion: numb
 type Reversal = { id: string; amountCentavos: string; reason: string; status: string; createdAt: string; confirmedAt: string | null };
 type Payment = { id: string; amountCentavos: string; method: string; status: string; paidAt: string | null; reference: string | null; note: string | null; createdByMemberId: string | null; createdAt: string; confirmedAt: string | null; approvals: { id: string; decision: string; decidedAt: string; member: { id: string; displayName: string } }[]; reversals: Reversal[] };
 type Loan = { id: string; publicCode: string; category: string; description: string; principalCentavos: string; currency: string; repaymentTerms: string; dueAt: string | null; status: string; termsVersion: number; createdAt: string; borrower: { id: string; displayName: string; memberUid: string }; lender: { id: string; displayName: string; memberUid: string }; outstandingCentavos: string; approvals: Approval[]; payments: Payment[] };
-type Member = { id: string; memberUid: string; displayName: string; email: string | null; role: string; createdAt: string; hasActiveAccess: boolean };
+type Member = { id: string; memberUid: string; displayName: string; email: string | null; phone?: string | null; role: string; createdAt: string; hasActiveAccess: boolean };
 type Audit = { sequence: string; entityType: string; entityId: string; eventType: string; actorMemberId: string | null; createdAt: string; eventHash: string; previousHash: string | null };
 type Details = { member: Member; loans: Loan[]; audit: Audit[] };
 
