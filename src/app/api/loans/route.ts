@@ -13,7 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  const where = session.role === "OWNER" ? {} : { OR: [{ borrowerId: session.id }, { lenderId: session.id }] };
+  const where = session.role === "OWNER"
+    ? { id: { in: (await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "LOAN", eventType: "LOAN_DRAFT_CREATED" }, select: { entityId: true } })).map((entry) => entry.entityId) } }
+    : { OR: [{ borrowerId: session.id }, { lenderId: session.id }] };
   const loans = await prisma.loan.findMany({
     where,
     include: {
@@ -58,6 +60,9 @@ export async function POST(request: NextRequest) {
   let principalCentavos: bigint;
   try { principalCentavos = parsePhpToCentavos(parsed.data.amountPhp); } catch { return NextResponse.json({ error: "Enter a valid positive PHP amount." }, { status: 400 }); }
   if (principalCentavos <= 0n) return NextResponse.json({ error: "Loan amount must be greater than zero." }, { status: 400 });
+  const ownedMembers = await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "MEMBER", eventType: "MEMBER_CREATED" }, select: { entityId: true } });
+  const allowedMemberIds = new Set([session.id, ...ownedMembers.map((entry) => entry.entityId)]);
+  if (!allowedMemberIds.has(parsed.data.borrowerId) || !allowedMemberIds.has(parsed.data.lenderId)) return NextResponse.json({ error: "Borrower and lender must belong to your workspace." }, { status: 404 });
   const [borrower, lender] = await Promise.all([
     prisma.member.findFirst({ where: { id: parsed.data.borrowerId, disabledAt: null }, select: { id: true } }),
     prisma.member.findFirst({ where: { id: parsed.data.lenderId, disabledAt: null }, select: { id: true } }),
