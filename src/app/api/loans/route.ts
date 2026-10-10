@@ -35,7 +35,7 @@ export async function GET() {
       id: loan.id, publicCode: loan.publicCode, borrower: loan.borrower, lender: loan.lender,
       category: loan.category, description: loan.description, principalCentavos: loan.principalCentavos.toString(),
       outstandingCentavos: outstanding.toString(), currency: loan.currency, repaymentTerms: loan.repaymentTerms,
-      borrowedAt: loan.borrowedAt.toISOString(), dueAt: loan.dueAt?.toISOString() ?? null, status: loan.status, termsVersion: loan.termsVersion,
+      borrowedAt: loan.borrowedAt.toISOString(), borrowedAt: loan.borrowedAt.toISOString(), dueAt: loan.dueAt?.toISOString() ?? null, status: loan.status, termsVersion: loan.termsVersion,
       createdAt: loan.createdAt.toISOString(),
       myTermsAccepted: loan.approvals.some((a) => a.memberId === session.id && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
       otherPartyAccepted: loan.approvals.some((a) => a.memberId !== session.id && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
