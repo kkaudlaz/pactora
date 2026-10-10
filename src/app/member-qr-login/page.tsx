@@ -28,7 +28,7 @@ export default function MemberQrLoginPage() {
     let token = "";
     try {
       const url = new URL(value, window.location.origin);
-      if (url.origin !== window.location.origin || url.pathname !== "/access") throw new Error("This is not a Pactora member QR code.");
+      if (url.pathname.replace(/\/+$/, "") !== "/access") throw new Error("This is not a Pactora member QR code.");
       token = new URLSearchParams(url.hash.slice(1)).get("token") || "";
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "This QR code is not valid.");
