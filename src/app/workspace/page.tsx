@@ -6,7 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { formatPhp } from "@/lib/money";
 
 type Member = { id: string; memberUid: string; displayName: string; email: string | null; role: "OWNER" | "MEMBER"; createdAt?: string; hasActiveAccess?: boolean };
-type Loan = { id: string; publicCode: string; borrower: Member; lender: Member; category: string; description: string; principalCentavos: string; outstandingCentavos: string; repaymentTerms: string; borrowedAt?: string; dueAt: string | null; status: string; createdAt: string; myTermsAccepted: boolean; otherPartyAccepted: boolean; payments: { id: string; amountCentavos: string; method: string; status: string; createdByMemberId: string | null; createdAt: string; reference: string | null }[] };
+type Loan = { id: string; publicCode: string; borrower: Member; lender: Member; category: string; description: string; principalCentavos: string; outstandingCentavos: string; repaymentTerms: string; borrowedAt?: string; borrowedAt?: string; dueAt: string | null; status: string; createdAt: string; myTermsAccepted: boolean; otherPartyAccepted: boolean; payments: { id: string; amountCentavos: string; method: string; status: string; createdByMemberId: string | null; createdAt: string; reference: string | null }[] };
 type NewAccess = { displayName: string; accessUrl: string; memberUid: string };
 type AuditCheck = { ok: boolean; checked: number; firstInvalidSequence: string | null };
 type AuditEntry = { sequence: string; entityType: string; entityId: string; eventType: string; actorMemberId: string | null; payloadSha256: string; previousHash: string | null; eventHash: string; createdAt: string };
