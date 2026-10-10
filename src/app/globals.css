@@ -51,3 +51,7 @@
 .payment-selection-amount input{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:#fff;color:var(--ink);font:inherit}
 .member-camera[hidden]{display:none!important}
 @media(min-width:760px){.payment-selection-row{grid-template-columns:minmax(0,1fr) minmax(190px,260px);align-items:center}.payment-selection-amount{margin-left:0}}
+
+.payment-loan-filter select{min-width:220px;max-width:280px;min-height:38px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;background:#fff;color:var(--ink);font:inherit;font-size:11px}
+.payment-filter-hint{font-size:11px;margin:8px 0 0}
+@media(max-width:720px){.payment-loan-filter,.payment-loan-filter select{width:100%;max-width:none}.payment-toolbar{align-items:stretch;flex-wrap:wrap}}
