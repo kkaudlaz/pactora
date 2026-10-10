@@ -25,7 +25,7 @@ export default function MemberHistoryPage() {
       const response = await fetch("/api/admin/members/" + encodeURIComponent(params.memberId), { cache: "no-store" });
       const result = await response.json();
       if (!response.ok) {
-        if (response.status === 401) { router.replace("/login"); return; }
+        if (response.status === 401) { router.replace("/"); return; }
         if (response.status === 403) { router.replace("/member"); return; }
         throw new Error(result.error || "Could not load member history.");
       }
