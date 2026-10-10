@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatPhp } from "@/lib/money";
 
 type Payment = { id: string; amountCentavos: string; method: string; status: string; createdByMemberId: string | null; paidAt: string | null; createdAt: string };
-type Loan = { id: string; publicCode: string; borrower: {id:string;displayName:string}; lender: {id:string;displayName:string}; category: string; description: string; principalCentavos: string; outstandingCentavos: string; repaymentTerms: string; borrowedAt?: string; dueAt: string|null; status: string; termsVersion: number; termsHash: string|null; createdAt: string; myTermsAccepted: boolean; otherPartyAccepted: boolean; payments: Payment[] };
+type Loan = { id: string; publicCode: string; borrower: {id:string;displayName:string}; lender: {id:string;displayName:string}; category: string; description: string; principalCentavos: string; outstandingCentavos: string; repaymentTerms: string; borrowedAt?: string; borrowedAt?: string; dueAt: string|null; status: string; termsVersion: number; termsHash: string|null; createdAt: string; myTermsAccepted: boolean; otherPartyAccepted: boolean; payments: Payment[] };
 type Member = {id:string;displayName:string;role:"OWNER"|"MEMBER"};
 
 export default function MemberPage() {
