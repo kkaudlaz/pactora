@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMember } from "@/lib/session";
 import { appendAuditEntry } from "@/lib/audit";
+import { calculateOutstandingCentavos } from "@/lib/ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,12 +27,26 @@ export async function GET(request: NextRequest) {
   const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
+  const mineOnly = new URL(request.url).searchParams.get("mine") === "1";
   const loans = await prisma.loan.findMany({
     where: { OR: [{ borrowerId: session.id }, { lenderId: session.id }] },
-    select: { lenderId: true },
+    select: {
+      lenderId: true, status: true, dueAt: true, principalCentavos: true,
+      payments: { select: { id: true, amountCentavos: true, status: true, reversals: { select: { amountCentavos: true, status: true } } } },
+    },
   });
-  const mineOnly = new URL(request.url).searchParams.get("mine") === "1";
-  const lenderIds = mineOnly ? [session.id] : [...new Set([session.id, ...loans.map((loan) => loan.lenderId)])];
+  const manilaDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  const eligibleLenderIds = loans.filter((loan) => {
+    if (loan.status !== "ACTIVE" || !loan.dueAt || manilaDate(new Date()) < manilaDate(loan.dueAt)) return false;
+    const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((payment) => ({
+      id: payment.id, amountCentavos: payment.amountCentavos, status: payment.status,
+      reversals: payment.reversals.map((reversal) => ({ amountCentavos: reversal.amountCentavos, status: reversal.status })),
+    })));
+    return outstanding > 0n;
+  }).map((loan) => loan.lenderId);
+  // Owner QR settings must always remain accessible. Member sessions only receive QR data for lenders
+  // with at least one active, due, unpaid loan, so pre-due QR images are not sent to the browser.
+  const lenderIds = mineOnly ? [session.id] : [...new Set(eligibleLenderIds)];
   const destinations = await prisma.paymentDestination.findMany({
     where: { lenderId: { in: lenderIds } },
     orderBy: [{ provider: "asc" }, { updatedAt: "desc" }],
