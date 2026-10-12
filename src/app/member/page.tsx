@@ -27,6 +27,7 @@ export default function MemberPage() {
   const [saving,setSaving]=useState(false);
   const [showRepaymentForm,setShowRepaymentForm]=useState(false);
   const [confirmingPaymentId,setConfirmingPaymentId]=useState<string|null>(null);
+  const [,setClockTick]=useState(0);
 
   const load=useCallback(async()=>{
     setLoading(true);setError("");
@@ -45,6 +46,8 @@ export default function MemberPage() {
     finally{setLoading(false);}
   },[router]);
   useEffect(()=>{void load();},[load]);
+  // Re-evaluate the Manila due-date boundary while this page stays open.
+  useEffect(()=>{const timer=window.setInterval(()=>setClockTick(Date.now()),30_000);return()=>window.clearInterval(timer);},[]);
 
   async function confirmPayment(payment:Payment){
     if(confirmingPaymentId===payment.id)return;
