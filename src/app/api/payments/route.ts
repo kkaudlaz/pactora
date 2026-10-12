@@ -34,6 +34,10 @@ export async function POST(request: NextRequest) {
       if (!loan) throw new Error("LOAN_NOT_FOUND");
       if (loan.status !== "ACTIVE") throw new Error("LOAN_NOT_ACTIVE");
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
+      if ((parsed.data.method === "GCASH" || parsed.data.method === "BANK_TRANSFER") && loan.dueAt) {
+        const dateInManila = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+        if (dateInManila(new Date()) < dateInManila(loan.dueAt)) throw new Error("QR_PAYMENT_NOT_YET_AVAILABLE");
+      }
       if (loan.payments.some((item) => item.status === "AWAITING_ACKNOWLEDGMENT")) throw new Error("PAYMENT_ALREADY_PENDING");
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
       if (amountCentavos > outstanding) throw new Error("PAYMENT_EXCEEDS_BALANCE");
@@ -52,6 +56,7 @@ export async function POST(request: NextRequest) {
         IDEMPOTENCY_CONFLICT: { status: 409, message: "This idempotency key was used for another operation." },
         LOAN_NOT_FOUND: { status: 404, message: "Loan not found." },
         LOAN_NOT_ACTIVE: { status: 409, message: "Payments can only be proposed for active loans." },
+        QR_PAYMENT_NOT_YET_AVAILABLE: { status: 409, message: "Bank and GCash QR repayments become available at 12:00 AM Philippine time on the loan due date. You can record cash or other payments before then." },
         NOT_PARTY: { status: 403, message: "You are not a party to this loan." },
         PAYMENT_EXCEEDS_BALANCE: { status: 400, message: "Payment exceeds the outstanding confirmed balance." },
         PAYMENT_ALREADY_PENDING: { status: 409, message: "This loan already has a repayment awaiting acknowledgment. Wait for it to be acknowledged before submitting another repayment." },
