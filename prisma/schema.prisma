@@ -68,6 +68,7 @@ model Member {
   approvals      Approval[]
   accessGrants   AccessGrant[]
   personalPurchases PersonalPurchase[]
+  paymentDestinations PaymentDestination[]
 }
 
 model Loan {
@@ -246,4 +247,21 @@ model PersonalPurchasePayment {
   purchase            PersonalPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
   @@index([purchaseId, paidAt])
+}
+
+
+model PaymentDestination {
+  id            String        @id @default(cuid())
+  lenderId      String
+  method        PaymentMethod
+  provider      String
+  recipientName String?
+  accountLabel  String?
+  qrImageData   String        @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  lender        Member        @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@unique([lenderId, method, provider])
+  @@index([lenderId, method])
 }
