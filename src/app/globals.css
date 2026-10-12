@@ -195,7 +195,7 @@
 }
 
 
-/* Zoom into the QR region within poster-style uploads such as BDO-QR.jpg. */
+/* Fit the entire uploaded QR image within the viewer without zooming or cropping. */
 .payment-qr-full-image-wrap{
   flex:1 1 auto;
   min-height:0;
@@ -207,18 +207,22 @@
   background:transparent;
 }
 .payment-qr-full-image{
-  flex:0 0 auto;
-  max-width:none !important;
-  max-height:none !important;
+  display:block;
+  flex:0 1 auto;
   width:auto !important;
   height:auto !important;
-  transform:scale(3.6);
-  transform-origin:center center;
+  max-width:100% !important;
+  max-height:calc(94dvh - 150px) !important;
   object-fit:contain;
+  object-position:center;
+  transform:none !important;
   image-rendering:auto;
-  background:#fff;
-  border-radius:2px;
+  background:transparent;
+  border-radius:0;
 }
 @media(max-width:600px){
-  .payment-qr-full-image{transform:scale(2.7)}
+  .payment-qr-full-image{
+    max-width:100% !important;
+    max-height:calc(96dvh - 150px) !important;
+  }
 }
