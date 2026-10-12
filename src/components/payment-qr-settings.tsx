@@ -33,7 +33,7 @@ export default function PaymentQrSettings() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/payment-destinations", { cache: "no-store" });
+      const response = await fetch("/api/payment-destinations?mine=1", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not load payment QR settings.");
       setDestinations(data.myDestinations || []);
