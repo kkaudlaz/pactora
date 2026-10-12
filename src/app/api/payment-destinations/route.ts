@@ -36,7 +36,7 @@ export async function GET() {
     orderBy: [{ provider: "asc" }, { updatedAt: "desc" }],
     select: { id: true, lenderId: true, method: true, provider: true, recipientName: true, accountLabel: true, qrImageData: true, updatedAt: true },
   });
-  return NextResponse.json({ destinations });
+  return NextResponse.json({ destinations, myDestinations: destinations.filter((destination) => destination.lenderId === session.id) });
 }
 
 export async function POST(request: NextRequest) {
