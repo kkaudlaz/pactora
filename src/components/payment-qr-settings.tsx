@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 type PaymentDestination = {
   id: string;
@@ -73,7 +73,7 @@ export default function PaymentQrSettings() {
     reader.readAsDataURL(file);
   }
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
     setError("");
