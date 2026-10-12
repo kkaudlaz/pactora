@@ -22,7 +22,7 @@ function validImageData(value: unknown): value is string {
     && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
@@ -30,7 +30,8 @@ export async function GET() {
     where: { OR: [{ borrowerId: session.id }, { lenderId: session.id }] },
     select: { lenderId: true },
   });
-  const lenderIds = [...new Set([session.id, ...loans.map((loan) => loan.lenderId)])];
+  const mineOnly = new URL(request.url).searchParams.get("mine") === "1";
+  const lenderIds = mineOnly ? [session.id] : [...new Set([session.id, ...loans.map((loan) => loan.lenderId)])];
   const destinations = await prisma.paymentDestination.findMany({
     where: { lenderId: { in: lenderIds } },
     orderBy: [{ provider: "asc" }, { updatedAt: "desc" }],
