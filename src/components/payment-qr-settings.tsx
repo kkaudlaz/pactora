@@ -36,7 +36,7 @@ export default function PaymentQrSettings() {
       const response = await fetch("/api/payment-destinations", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not load payment QR settings.");
-      setDestinations(data.destinations.filter((item: PaymentDestination) => item.lenderId === data.destinations.find((entry: PaymentDestination) => entry.id === item.id)?.lenderId));
+      setDestinations(data.myDestinations || []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load payment QR settings.");
     } finally {
