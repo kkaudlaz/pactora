@@ -193,3 +193,32 @@
   .payment-qr-lightbox-panel{width:100%;height:96dvh;max-height:96dvh;padding:10px;border-radius:12px}
   .payment-qr-full-image{max-width:94vw !important;max-height:calc(96dvh - 150px) !important}
 }
+
+
+/* Zoom into the QR region within poster-style uploads such as BDO-QR.jpg. */
+.payment-qr-full-image-wrap{
+  flex:1 1 auto;
+  min-height:0;
+  width:100%;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+}
+.payment-qr-full-image{
+  flex:0 0 auto;
+  max-width:none !important;
+  max-height:none !important;
+  width:auto !important;
+  height:auto !important;
+  transform:scale(3.6);
+  transform-origin:center center;
+  object-fit:contain;
+  image-rendering:auto;
+  background:#fff;
+  border-radius:2px;
+}
+@media(max-width:600px){
+  .payment-qr-full-image{transform:scale(2.7)}
+}
