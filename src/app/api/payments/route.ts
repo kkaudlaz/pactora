@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
       if (!loan) throw new Error("LOAN_NOT_FOUND");
       if (loan.status !== "ACTIVE") throw new Error("LOAN_NOT_ACTIVE");
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
-      if ((parsed.data.method === "GCASH" || parsed.data.method === "BANK_TRANSFER") && loan.dueAt) {
+      if (parsed.data.method === "GCASH" || parsed.data.method === "BANK_TRANSFER") {
         const dateInManila = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-        if (dateInManila(new Date()) < dateInManila(loan.dueAt)) throw new Error("QR_PAYMENT_NOT_YET_AVAILABLE");
+        if (!loan.dueAt || dateInManila(new Date()) < dateInManila(loan.dueAt)) throw new Error("QR_PAYMENT_NOT_YET_AVAILABLE");
       }
       if (loan.payments.some((item) => item.status === "AWAITING_ACKNOWLEDGMENT")) throw new Error("PAYMENT_ALREADY_PENDING");
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
