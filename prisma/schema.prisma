@@ -91,6 +91,7 @@ model Loan {
   borrower       Member       @relation("BorrowerLoans", fields: [borrowerId], references: [id])
   lender         Member       @relation("LenderLoans", fields: [lenderId], references: [id])
   payments       Payment[]
+  cutoffInstallments CutoffInstallment[]
   approvals      Approval[]
   events         LedgerEvent[]
 
@@ -113,6 +114,8 @@ model Payment {
   createdAt        DateTime      @default(now())
   confirmedAt      DateTime?
   loan             Loan          @relation(fields: [loanId], references: [id])
+  cutoffInstallmentId String?
+  cutoffInstallment CutoffInstallment? @relation(fields: [cutoffInstallmentId], references: [id], onDelete: SetNull)
   approvals        Approval[]
   events           LedgerEvent[]
   reversals        PaymentReversal[]
