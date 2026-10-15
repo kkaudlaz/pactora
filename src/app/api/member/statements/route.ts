@@ -76,7 +76,7 @@ export async function GET() {
   }
 
   const statements = [...groups.values()]
-    .sort((a, b) => b.periodStart.localeCompare(a.periodStart) || b.periodEnd.localeCompare(a.periodEnd))
+    .sort((a, b) => (a.state === "CURRENT" ? 0 : a.state === "PAST" ? 1 : 2) - (b.state === "CURRENT" ? 0 : b.state === "PAST" ? 1 : 2) || b.periodStart.localeCompare(a.periodStart) || b.periodEnd.localeCompare(a.periodEnd))
     .map((group) => ({
       ...group,
       totalCentavos: group.totalCentavos.toString(),
