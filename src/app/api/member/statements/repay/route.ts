@@ -39,10 +39,11 @@ export async function POST(request: NextRequest) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT 'locked'::text AS result FROM (SELECT pg_advisory_xact_lock(711772601)) AS lock_result`;
-      const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityType: true, eventType: true } });
+      const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { entityType: true, eventType: true, payloadJson: true } });
       if (prior) {
         if (prior.entityType !== "STATEMENT" || prior.eventType !== "STATEMENT_PAYMENT_BATCH_PROPOSED") throw new Error("IDEMPOTENCY_CONFLICT");
-        return { count: 0, total: 0n, replay: true };
+        const payload = prior.payloadJson as { paymentCount?: number; totalCentavos?: string };
+        return { count: payload.paymentCount ?? 0, total: BigInt(payload.totalCentavos ?? "0"), replay: true };
       }
 
       const installments = await tx.cutoffInstallment.findMany({
