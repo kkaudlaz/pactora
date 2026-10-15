@@ -19,6 +19,7 @@ export default function MemberStatements({ memberId }: { memberId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [statementTab, setStatementTab] = useState<"CURRENT" | "PREVIOUS" | "UPCOMING">("CURRENT");
   const [repayItemId, setRepayItemId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("GCASH");
@@ -46,6 +47,7 @@ export default function MemberStatements({ memberId }: { memberId: string }) {
   }, []);
   useEffect(() => { void load(); }, [load, memberId]);
 
+  const visibleStatements = useMemo(() => statements.filter((statement) => statementTab === "CURRENT" ? statement.state === "CURRENT" : statementTab === "PREVIOUS" ? statement.state === "PAST" : statement.state === "UPCOMING"), [statements, statementTab]);
   const selectedItem = useMemo(() => statements.flatMap((s) => s.items).find((item) => item.id === repayItemId) || null, [statements, repayItemId]);
   const due = selectedItem ? manilaDate(new Date()) >= selectedItem.dueAt : false;
   const qrProvider = method === "GCASH" ? "GCash" : bankProvider;
@@ -83,7 +85,11 @@ export default function MemberStatements({ memberId }: { memberId: string }) {
     {notice && <div className="workspace-alert success" role="status">{notice}</div>}
     {loading && <div className="workspace-loading">Loading cutoff statements…</div>}
     {!loading && statements.length === 0 && <div className="workspace-card empty-state">No cutoff statements have been configured for your loans yet.</div>}
-    {!loading && statements.map((statement) => {
+    {!loading && statements.length > 0 && <div className="statement-tabs" role="tablist" aria-label="Cutoff statement periods">
+      {([{ key: "CURRENT", label: "Current" }, { key: "PREVIOUS", label: "Previous" }, { key: "UPCOMING", label: "Upcoming" }] as const).map((tab) => <button key={tab.key} type="button" role="tab" aria-selected={statementTab === tab.key} className={"statement-tab" + (statementTab === tab.key ? " active" : "")} onClick={() => setStatementTab(tab.key)}>{tab.label}<span>{statements.filter((statement) => tab.key === "CURRENT" ? statement.state === "CURRENT" : tab.key === "PREVIOUS" ? statement.state === "PAST" : statement.state === "UPCOMING").length}</span></button>)}
+    </div>}
+    {!loading && statements.length > 0 && visibleStatements.length === 0 && <div className="workspace-card empty-state">No {statementTab.toLowerCase()} cutoff statements.</div>}
+    {!loading && visibleStatements.map((statement) => {
       const isOpen = expanded === statement.id;
       const stateLabel = statement.state === "CURRENT" ? "Current statement" : statement.state === "UPCOMING" ? "Upcoming statement" : "Previous statement";
       return <article className="workspace-card" key={statement.id}>
