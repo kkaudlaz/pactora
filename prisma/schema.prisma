@@ -268,3 +268,23 @@ model PaymentDestination {
   @@unique([lenderId, method, provider])
   @@index([lenderId, method])
 }
+
+
+model CutoffInstallment {
+  id                String   @id @default(cuid())
+  loanId            String
+  periodStart       DateTime @db.Date
+  periodEnd         DateTime @db.Date
+  dueAt             DateTime @db.Date
+  amountCentavos    BigInt
+  note              String?
+  createdByMemberId String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  loan              Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+
+  @@unique([loanId, periodStart, periodEnd])
+  @@index([periodStart, periodEnd, dueAt])
+  @@index([loanId, dueAt])
+}
