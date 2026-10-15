@@ -1,6 +1,6 @@
 export type CutoffPeriod = { start: string; end: string; due: string };
 const dateKey = (date: Date) => date.toISOString().slice(0, 10);
-const utcDate = (value: string | Date) => value instanceof Date ? new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())) : new Date(Date.UTC(...value.slice(0, 10).split("-").map(Number).map((v, i) => i === 1 ? v - 1 : v) as [number, number, number]));
+const utcDate = (value: string | Date) => { if (value instanceof Date) return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())); const [year, month, day] = value.slice(0, 10).split("-").map(Number); return new Date(Date.UTC(year, month - 1, day)); };
 const addDays = (date: Date, days: number) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 
 /** Shared schedule: one-off Aug 27–Oct 15, 2026, then 16th–15th monthly. */
