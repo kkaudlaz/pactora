@@ -33,16 +33,30 @@ export async function GET(request: NextRequest) {
     select: {
       lenderId: true, status: true, dueAt: true, principalCentavos: true,
       payments: { select: { id: true, amountCentavos: true, status: true, reversals: { select: { amountCentavos: true, status: true } } } },
+      cutoffInstallments: { select: { dueAt: true, amountCentavos: true, payments: { select: { amountCentavos: true, status: true, reversals: { select: { amountCentavos: true, status: true } } } } } },
     },
   });
   const manilaDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  const today = manilaDate(new Date());
   const eligibleLenderIds = loans.filter((loan) => {
-    if (loan.status !== "ACTIVE" || !loan.dueAt || manilaDate(new Date()) < manilaDate(loan.dueAt)) return false;
+    if (loan.status !== "ACTIVE") return false;
     const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((payment) => ({
       id: payment.id, amountCentavos: payment.amountCentavos, status: payment.status,
       reversals: payment.reversals.map((reversal) => ({ amountCentavos: reversal.amountCentavos, status: reversal.status })),
     })));
-    return outstanding > 0n;
+    if (outstanding <= 0n) return false;
+    if (loan.cutoffInstallments.length > 0) {
+      return loan.cutoffInstallments.some((cutoff) => {
+        if (today < manilaDate(cutoff.dueAt)) return false;
+        const applied = cutoff.payments.reduce((sum, payment) => {
+          if (payment.status !== "CONFIRMED" && payment.status !== "AWAITING_ACKNOWLEDGMENT") return sum;
+          const reversed = payment.reversals.filter((item) => item.status === "CONFIRMED").reduce((n, item) => n + item.amountCentavos, 0n);
+          return sum + payment.amountCentavos - reversed;
+        }, 0n);
+        return applied < cutoff.amountCentavos;
+      });
+    }
+    return Boolean(loan.dueAt && today >= manilaDate(loan.dueAt));
   }).map((loan) => loan.lenderId);
   // Owner QR settings must always remain accessible. Member sessions only receive QR data for lenders
   // with at least one active, due, unpaid loan, so pre-due QR images are not sent to the browser.
