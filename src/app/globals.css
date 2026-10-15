@@ -238,3 +238,13 @@
 .current-cutoff-stat .stat-top{color:#176f59}
 .current-cutoff-stat .stat-value{font-size:clamp(25px,2.6vw,34px);color:#176f59}
 @media(max-width:520px){.statement-tabs{gap:4px;padding:4px}.statement-tab{gap:5px;padding:10px 5px;font-size:10px}.statement-tab span{min-width:18px;height:18px;padding:0 4px}.current-cutoff-stat .stat-value{font-size:22px}}
+
+
+.statement-repay-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0;padding:16px 18px;border:1px solid #b9ddcf;border-radius:12px;background:linear-gradient(145deg,#f5fbf8 0%,#fff 76%)}
+.statement-repay-bar>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.statement-repay-bar small{color:#647b72;font-size:11px;font-weight:650}
+.statement-repay-bar strong{color:#176f59;font-size:clamp(22px,2.3vw,30px);line-height:1.2;font-variant-numeric:tabular-nums}
+.statement-repay-bar span{color:#8a5a13;font-size:11px}
+.statement-repay-bar .primary-button{flex-shrink:0}
+.statement-repay-form{margin:0 0 16px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fbfcfd}
+@media(max-width:520px){.statement-repay-bar{align-items:stretch;flex-direction:column;padding:14px}.statement-repay-bar .primary-button{width:100%}.statement-repay-form{padding:12px}}
