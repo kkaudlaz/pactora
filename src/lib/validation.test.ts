@@ -13,4 +13,7 @@ describe("createLoanDraftSchema", () => {
 describe("proposePaymentSchema", () => {
   it("accepts a cash payment proposal", () => expect(proposePaymentSchema.safeParse({ loanId: "loan-1", amountPhp: "100", method: "CASH" }).success).toBe(true));
   it("rejects invalid payment method", () => expect(proposePaymentSchema.safeParse({ loanId: "loan-1", amountPhp: "100", method: "CRYPTO" }).success).toBe(false));
+  it("requires a reference for GCash", () => expect(proposePaymentSchema.safeParse({ loanId: "loan-1", amountPhp: "100", method: "GCASH" }).success).toBe(false));
+  it("requires a reference for bank transfers", () => expect(proposePaymentSchema.safeParse({ loanId: "loan-1", amountPhp: "100", method: "BANK_TRANSFER", reference: " " }).success).toBe(false));
+  it("accepts a referenced bank transfer", () => expect(proposePaymentSchema.safeParse({ loanId: "loan-1", amountPhp: "100", method: "BANK_TRANSFER", reference: "TXN-123" }).success).toBe(true));
 });

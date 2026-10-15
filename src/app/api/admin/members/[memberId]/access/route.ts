@@ -27,6 +27,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ me
       await tx.$queryRaw`SELECT 'locked'::text AS result FROM (SELECT pg_advisory_xact_lock(711772601)) AS lock_result`;
       const prior = await tx.auditEntry.findUnique({ where: { idempotencyKey }, select: { id: true } });
       if (prior) throw new Error("IDEMPOTENCY_REPLAY");
+      const ownership = await tx.auditEntry.findFirst({ where: { actorMemberId: session.id, entityType: "MEMBER", entityId: memberId, eventType: "MEMBER_CREATED" }, select: { id: true } });
+      if (!ownership) throw new Error("MEMBER_NOT_FOUND");
       const target = await tx.member.findUnique({ where: { id: memberId } });
       if (!target || target.disabledAt || target.role !== "MEMBER") throw new Error("MEMBER_NOT_FOUND");
       await tx.accessGrant.updateMany({ where: { memberId, revokedAt: null }, data: { revokedAt: new Date() } });

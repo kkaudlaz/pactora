@@ -11,20 +11,36 @@ const loginSchema = z.object({ email: z.string().trim().email().max(254), passwo
 
 export async function POST(request: NextRequest) {
   let body: unknown;
-  try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Enter a valid email and password." }, { status: 400 });
+
   const email = parsed.data.email.toLowerCase();
   const key = `owner:${email}`;
-  if (isLoginLimited(key)) return NextResponse.json({ error: "Too many attempts. Try again in 15 minutes." }, { status: 429 });
 
-  const member = await prisma.member.findUnique({ where: { email } });
-  const valid = Boolean(member && member.role === "OWNER" && !member.disabledAt && member.passwordHash && await verifyPassword(parsed.data.password, member.passwordHash));
-  if (!valid || !member) {
-    recordLoginFailure(key);
-    return NextResponse.json({ error: "Email or password is incorrect." }, { status: 401 });
+  try {
+    if (isLoginLimited(key)) {
+      return NextResponse.json({ error: "Too many attempts. Try again in 15 minutes." }, { status: 429 });
+    }
+
+    const member = await prisma.member.findUnique({ where: { email } });
+    const valid = Boolean(member && member.role === "OWNER" && !member.disabledAt && member.passwordHash && await verifyPassword(parsed.data.password, member.passwordHash));
+    if (!valid || !member) {
+      recordLoginFailure(key);
+      return NextResponse.json({ error: "Email or password is incorrect." }, { status: 401 });
+    }
+
+    clearLoginFailures(key);
+    const response = NextResponse.json({ member: { id: member.id, displayName: member.displayName, role: member.role } });
+    return setSessionCookie(response, member.id, member.role);
+  } catch (error) {
+    // Keep internal details in server logs; return a stable JSON response to the browser.
+    console.error("Owner login failed due to a server error:", error);
+    return NextResponse.json({ error: "Sign-in is temporarily unavailable. Please try again shortly. If this continues, check the deployment logs." }, { status: 503 });
   }
-  clearLoginFailures(key);
-  const response = NextResponse.json({ member: { id: member.id, displayName: member.displayName, role: member.role } });
-  return setSessionCookie(response, member.id, member.role);
 }

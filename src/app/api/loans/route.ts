@@ -13,7 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await getAuthenticatedMember();
   if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  const where = session.role === "OWNER" ? {} : { OR: [{ borrowerId: session.id }, { lenderId: session.id }] };
+  const where = session.role === "OWNER"
+    ? { id: { in: (await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "LOAN", eventType: "LOAN_DRAFT_CREATED" }, select: { entityId: true } })).map((entry) => entry.entityId) } }
+    : { OR: [{ borrowerId: session.id }, { lenderId: session.id }] };
   const loans = await prisma.loan.findMany({
     where,
     include: {
@@ -33,7 +35,7 @@ export async function GET() {
       id: loan.id, publicCode: loan.publicCode, borrower: loan.borrower, lender: loan.lender,
       category: loan.category, description: loan.description, principalCentavos: loan.principalCentavos.toString(),
       outstandingCentavos: outstanding.toString(), currency: loan.currency, repaymentTerms: loan.repaymentTerms,
-      dueAt: loan.dueAt?.toISOString() ?? null, status: loan.status, termsVersion: loan.termsVersion,
+      borrowedAt: loan.borrowedAt.toISOString(), dueAt: loan.dueAt?.toISOString() ?? null, status: loan.status, termsVersion: loan.termsVersion,
       createdAt: loan.createdAt.toISOString(),
       myTermsAccepted: loan.approvals.some((a) => a.memberId === session.id && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
       otherPartyAccepted: loan.approvals.some((a) => a.memberId !== session.id && a.kind === "LOAN_TERMS" && a.termsVersion === loan.termsVersion && a.payloadHash === loan.termsHash && a.decision === "ACCEPTED"),
@@ -58,12 +60,15 @@ export async function POST(request: NextRequest) {
   let principalCentavos: bigint;
   try { principalCentavos = parsePhpToCentavos(parsed.data.amountPhp); } catch { return NextResponse.json({ error: "Enter a valid positive PHP amount." }, { status: 400 }); }
   if (principalCentavos <= 0n) return NextResponse.json({ error: "Loan amount must be greater than zero." }, { status: 400 });
+  const ownedMembers = await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "MEMBER", eventType: "MEMBER_CREATED" }, select: { entityId: true } });
+  const allowedMemberIds = new Set([session.id, ...ownedMembers.map((entry) => entry.entityId)]);
+  if (!allowedMemberIds.has(parsed.data.borrowerId) || !allowedMemberIds.has(parsed.data.lenderId)) return NextResponse.json({ error: "Borrower and lender must belong to your workspace." }, { status: 404 });
   const [borrower, lender] = await Promise.all([
     prisma.member.findFirst({ where: { id: parsed.data.borrowerId, disabledAt: null }, select: { id: true } }),
     prisma.member.findFirst({ where: { id: parsed.data.lenderId, disabledAt: null }, select: { id: true } }),
   ]);
   if (!borrower || !lender) return NextResponse.json({ error: "Borrower and lender must be active members." }, { status: 400 });
-  const terms = { borrowerId: borrower.id, lenderId: lender.id, category: parsed.data.category, description: parsed.data.description, principalCentavos: principalCentavos.toString(), currency: "PHP", repaymentTerms: parsed.data.repaymentTerms, dueAt: parsed.data.dueAt ?? null, termsVersion: 1 };
+  const terms = { borrowerId: borrower.id, lenderId: lender.id, category: parsed.data.category, description: parsed.data.description, principalCentavos: principalCentavos.toString(), currency: "PHP", repaymentTerms: parsed.data.repaymentTerms, borrowedAt: parsed.data.borrowedAt ?? new Date().toISOString(), dueAt: parsed.data.dueAt ?? null, termsVersion: 1 };
   const termsHash = createHash("sha256").update(JSON.stringify(terms)).digest("hex");
   const publicCode = `PT-${randomUUID().slice(0, 8).toUpperCase()}`;
   try {
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
       const created = await tx.loan.create({ data: {
         publicCode, borrowerId: borrower.id, lenderId: lender.id, category: parsed.data.category,
         description: parsed.data.description, principalCentavos, repaymentTerms: parsed.data.repaymentTerms,
-        dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null, status: "DRAFT", termsVersion: 1, termsHash,
+        borrowedAt: parsed.data.borrowedAt ? new Date(parsed.data.borrowedAt) : new Date(), dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null, status: "DRAFT", termsVersion: 1, termsHash,
       } });
       await appendAuditEntry(tx, { entityType: "LOAN", entityId: created.id, eventType: "LOAN_DRAFT_CREATED", actorMemberId: session.id, idempotencyKey, payload: { publicCode, ...terms, termsHash } });
       return created;

@@ -56,6 +56,7 @@ model Member {
   memberUid      String   @unique @default(cuid())
   displayName    String
   email          String?    @unique
+  phone          String?
   passwordHash   String?
   role           MemberRole @default(MEMBER)
   pinHash        String?
@@ -66,6 +67,8 @@ model Member {
   lenderLoans    Loan[]   @relation("LenderLoans")
   approvals      Approval[]
   accessGrants   AccessGrant[]
+  personalPurchases PersonalPurchase[]
+  paymentDestinations PaymentDestination[]
 }
 
 model Loan {
@@ -78,6 +81,7 @@ model Loan {
   principalCentavos BigInt
   currency       String       @default("PHP")
   repaymentTerms String
+  borrowedAt     DateTime     @default(now())
   dueAt          DateTime?
   status         LoanStatus   @default(DRAFT)
   termsVersion   Int          @default(1)
@@ -87,6 +91,7 @@ model Loan {
   borrower       Member       @relation("BorrowerLoans", fields: [borrowerId], references: [id])
   lender         Member       @relation("LenderLoans", fields: [lenderId], references: [id])
   payments       Payment[]
+  cutoffInstallments CutoffInstallment[]
   approvals      Approval[]
   events         LedgerEvent[]
 
@@ -109,6 +114,8 @@ model Payment {
   createdAt        DateTime      @default(now())
   confirmedAt      DateTime?
   loan             Loan          @relation(fields: [loanId], references: [id])
+  cutoffInstallmentId String?
+  cutoffInstallment CutoffInstallment? @relation(fields: [cutoffInstallmentId], references: [id], onDelete: SetNull)
   approvals        Approval[]
   events           LedgerEvent[]
   reversals        PaymentReversal[]
@@ -204,4 +211,80 @@ model AuditEntry {
 
   @@index([entityType, entityId, createdAt])
   @@index([createdAt])
+}
+
+
+enum PersonalPurchaseType {
+  CREDIT_CARD
+  INSTALLMENT
+}
+
+model PersonalPurchase {
+  id                    String               @id @default(cuid())
+  ownerId               String
+  purchaseType          PersonalPurchaseType
+  category              String
+  description           String
+  merchant              String?
+  totalAmountCentavos   BigInt
+  downPaymentCentavos   BigInt               @default(0)
+  installmentCount      Int?
+  statementDate         DateTime?
+  dueAt                 DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  owner                 Member               @relation(fields: [ownerId], references: [id])
+  payments              PersonalPurchasePayment[]
+
+  @@index([ownerId, createdAt])
+  @@index([ownerId, dueAt])
+}
+
+model PersonalPurchasePayment {
+  id                  String           @id @default(cuid())
+  purchaseId          String
+  amountCentavos      BigInt
+  paidAt              DateTime         @default(now())
+  note                String?
+  createdAt           DateTime         @default(now())
+  purchase            PersonalPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId, paidAt])
+}
+
+
+model PaymentDestination {
+  id            String        @id @default(cuid())
+  lenderId      String
+  method        PaymentMethod
+  provider      String
+  recipientName String?
+  accountLabel  String?
+  qrImageData   String        @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  lender        Member        @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@unique([lenderId, method, provider])
+  @@index([lenderId, method])
+}
+
+
+model CutoffInstallment {
+  id                String   @id @default(cuid())
+  loanId            String
+  periodStart       DateTime @db.Date
+  periodEnd         DateTime @db.Date
+  dueAt             DateTime @db.Date
+  amountCentavos    BigInt
+  note              String?
+  createdByMemberId String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  loan              Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+
+  @@unique([loanId, periodStart, periodEnd])
+  @@index([periodStart, periodEnd, dueAt])
+  @@index([loanId, dueAt])
 }
