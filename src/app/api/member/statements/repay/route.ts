@@ -9,6 +9,7 @@ import { idempotencyKeySchema, paymentMethodSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const bodySchema = z.object({
   periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
         payload: { periodStart: parsed.data.periodStart, periodEnd: parsed.data.periodEnd, paymentCount: proposals.length, totalCentavos: total.toString(), method: parsed.data.method, reference: parsed.data.reference || null },
       });
       return { count: proposals.length, total, replay: false };
-    }, { isolationLevel: "Serializable", maxWait: 10000, timeout: 15000 });
+    }, { isolationLevel: "Serializable", maxWait: 10000, timeout: 30000 });
     return NextResponse.json({ ok: true, paymentCount: result.count, totalCentavos: result.total.toString(), replay: result.replay }, { status: result.replay ? 200 : 201 });
   } catch (error) {
     if (error instanceof Error) {
