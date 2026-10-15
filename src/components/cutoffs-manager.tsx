@@ -4,7 +4,7 @@ import { formatPhp } from "@/lib/money";
 
 type Loan = { id:string; publicCode:string; description:string; status:string; borrower:{id:string;displayName:string}; lender:{id:string;displayName:string} };
 type Item = { id:string; loanId:string; periodStart:string; periodEnd:string; dueAt:string; amountCentavos:string; note:string|null; loan:{publicCode:string;description:string;status:string;borrower:{id:string;displayName:string};lender:{id:string;displayName:string}}; payments:{id:string;amountCentavos:string;status:string}[] };
-const today=()=>new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Manila"});
+const today=()=>{const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const get=(type:string)=>parts.find(part=>part.type===type)?.value||"";return get("year")+"-"+get("month")+"-"+get("day");};
 const paid=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED").reduce((n,p)=>n+BigInt(p.amountCentavos),0n);
 const reserved=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED"||p.status==="AWAITING_ACKNOWLEDGMENT").reduce((n,p)=>n+BigInt(p.amountCentavos),0n);
 export default function CutoffsManager({loans,ownerId,onChanged}:{loans:Loan[];ownerId?:string;onChanged:()=>Promise<void>}) {
