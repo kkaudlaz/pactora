@@ -3,10 +3,11 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { formatPhp } from "@/lib/money";
 
 type Loan = { id:string; publicCode:string; description:string; status:string; borrower:{id:string;displayName:string}; lender:{id:string;displayName:string} };
-type Item = { id:string; loanId:string; periodStart:string; periodEnd:string; dueAt:string; amountCentavos:string; note:string|null; loan:{publicCode:string;description:string;status:string;borrower:{id:string;displayName:string};lender:{id:string;displayName:string}}; payments:{id:string;amountCentavos:string;status:string}[] };
+type Item = { id:string; loanId:string; periodStart:string; periodEnd:string; dueAt:string; amountCentavos:string; note:string|null; loan:{publicCode:string;description:string;status:string;borrower:{id:string;displayName:string};lender:{id:string;displayName:string}}; payments:{id:string;amountCentavos:string;status:string;reversals?:{amountCentavos:string;status:string}[]}[] };
 const today=()=>{const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const get=(type:string)=>parts.find(part=>part.type===type)?.value||"";return get("year")+"-"+get("month")+"-"+get("day");};
-const paid=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED").reduce((n,p)=>n+BigInt(p.amountCentavos),0n);
-const reserved=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED"||p.status==="AWAITING_ACKNOWLEDGMENT").reduce((n,p)=>n+BigInt(p.amountCentavos),0n);
+const net=(p:Item["payments"][number])=>BigInt(p.amountCentavos)-((p.reversals||[]).filter(r=>r.status==="CONFIRMED").reduce((n,r)=>n+BigInt(r.amountCentavos),0n));
+const paid=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED").reduce((n,p)=>n+net(p),0n);
+const reserved=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED"||p.status==="AWAITING_ACKNOWLEDGMENT").reduce((n,p)=>n+net(p),0n);
 export default function CutoffsManager({loans,ownerId,onChanged,showRepayments=true}:{loans:Loan[];ownerId?:string;onChanged:()=>Promise<void>;showRepayments?:boolean}) {
  const [items,setItems]=useState<Item[]>([]),[loanId,setLoanId]=useState(""),[start,setStart]=useState("2026-08-27"),[end,setEnd]=useState("2026-10-07"),[due,setDue]=useState("2026-10-07"),[amount,setAmount]=useState(""),[note,setNote]=useState(""),[payId,setPayId]=useState(""),[payAmount,setPayAmount]=useState(""),[method,setMethod]=useState("CASH"),[reference,setReference]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const active=loans.filter(l=>l.status==="ACTIVE"&&(l.borrower.id===ownerId||l.lender.id===ownerId));
