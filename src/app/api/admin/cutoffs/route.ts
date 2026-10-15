@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
         if (prior.entityType !== "CUTOFF_INSTALLMENT" || prior.eventType !== "CUTOFF_INSTALLMENT_CREATED") throw new Error("IDEMPOTENCY_CONFLICT");
         return tx.cutoffInstallment.findUniqueOrThrow({ where: { id: prior.entityId } });
       }
+      const overlap = await tx.cutoffInstallment.findFirst({ where: { loanId: data.loanId as string, periodStart: { lte: new Date(`${data.periodEnd}T00:00:00.000Z`) }, periodEnd: { gte: new Date(`${data.periodStart}T00:00:00.000Z`) } }, select: { id: true } });
+      if (overlap) throw new Error("CUTOFF_PERIOD_OVERLAP");
       const created = await tx.cutoffInstallment.create({ data: {
         loanId: data.loanId as string, periodStart: new Date(`${data.periodStart}T00:00:00.000Z`), periodEnd: new Date(`${data.periodEnd}T00:00:00.000Z`), dueAt: new Date(`${data.dueAt}T00:00:00.000Z`),
         amountCentavos, note: typeof data.note === "string" ? data.note.slice(0, 500) : null, createdByMemberId: session.id,
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ installment: { id: installment.id, loanId: installment.loanId, periodStart: installment.periodStart.toISOString().slice(0, 10), periodEnd: installment.periodEnd.toISOString().slice(0, 10), dueAt: installment.dueAt.toISOString().slice(0, 10), amountCentavos: installment.amountCentavos.toString() } }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "IDEMPOTENCY_CONFLICT") return NextResponse.json({ error: "This idempotency key was already used for another operation." }, { status: 409 });
+    if (error instanceof Error && error.message === "CUTOFF_PERIOD_OVERLAP") return NextResponse.json({ error: "This cutoff overlaps an existing cutoff for the same loan. Keep the Oct 8–15 gap unassigned and configure each period separately." }, { status: 409 });
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") return NextResponse.json({ error: "An installment already exists for this loan and cutoff. Edit or reuse that cutoff instead of duplicating it." }, { status: 409 });
     throw error;
   }
