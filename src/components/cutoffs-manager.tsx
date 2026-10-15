@@ -8,7 +8,7 @@ type Item = { id:string; loanId:string; periodStart:string; periodEnd:string; du
 const today=()=>{const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const get=(type:string)=>parts.find(part=>part.type===type)?.value||"";return get("year")+"-"+get("month")+"-"+get("day");};
 const net=(p:Item["payments"][number])=>BigInt(p.amountCentavos)-((p.reversals||[]).filter(r=>r.status==="CONFIRMED").reduce((n,r)=>n+BigInt(r.amountCentavos),0n));
 const paid=(i:Item)=>i.payments.filter(p=>p.status==="CONFIRMED").reduce((n,p)=>n+net(p),0n);
-export default function CutoffsManager({loans,ownerId,onChanged}:{loans:Loan[];ownerId?:string;onChanged:()=>Promise<void>}) {
+export default function CutoffsManager({loans,ownerId,onChanged,showRepayments:_showRepayments=true}:{loans:Loan[];ownerId?:string;onChanged:()=>Promise<void>;showRepayments?:boolean}) {
  const [items,setItems]=useState<Item[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const load=useCallback(async()=>{try{const r=await fetch("/api/admin/cutoffs",{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Could not load cutoffs.");setItems(d.installments||[]);}catch(e){setError(e instanceof Error?e.message:"Could not load cutoffs.");}},[]);
  useEffect(()=>{void load();},[load]);
