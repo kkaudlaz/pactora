@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
  const session = await getAuthenticatedMember();
  if (!session || session.role !== "OWNER") return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+ try {
  const owned = await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "LOAN", eventType: "LOAN_DRAFT_CREATED" }, select: { entityId: true } });
  const loanIds = [...new Set(owned.map((entry) => entry.entityId))];
  // Generate missing installment rows for active, dated loans. Existing amounts/payment history are never overwritten.
@@ -67,6 +68,10 @@ export async function GET() {
   amountCentavos: item.amountCentavos.toString(), note: item.note, loan: item.loan,
   payments: item.payments.map((payment) => ({ ...payment, amountCentavos: payment.amountCentavos.toString(), createdAt: payment.createdAt.toISOString(), paidAt: payment.paidAt?.toISOString() ?? null, reversals: payment.reversals.map((reversal) => ({ amountCentavos: reversal.amountCentavos.toString(), status: reversal.status })) })),
  })) });
+ } catch (error) {
+  console.error("[cutoffs] Failed to load or generate cutoff schedule:", error);
+  return NextResponse.json({ error: "Could not refresh the cutoff schedule. Check the Vercel function logs for /api/admin/cutoffs." }, { status: 500 });
+ }
 }
 
 // Cutoff dates and amounts are generated from the shared schedule, not manually created per loan.
