@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { formatPhp } from "@/lib/money";
 
 type Member = { id: string; displayName: string; role: "OWNER" | "MEMBER" };
@@ -69,7 +70,7 @@ export default function GroupedRepayments({ members, ownerId, onChanged }: { mem
   const hasPending = balances.some((row) => row.pending);
   const canSubmit = Boolean(memberId && period && parsedAmount > 0n && parsedAmount <= total && left === 0n && !hasPending && !busy && balances.length);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) return;
     setBusy(true); setError(""); setNotice("");
