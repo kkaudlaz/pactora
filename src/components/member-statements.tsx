@@ -20,8 +20,7 @@ export default function MemberStatements({ memberId }: { memberId: string }) {
   const [notice, setNotice] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [statementTab, setStatementTab] = useState<"CURRENT" | "PREVIOUS" | "UPCOMING">("CURRENT");
-  const [repayItemId, setRepayItemId] = useState<string | null>(null);
-  const [amount, setAmount] = useState("");
+  const [repayStatementId, setRepayStatementId] = useState<string | null>(null);
   const [method, setMethod] = useState("GCASH");
   const [bankProvider, setBankProvider] = useState("BDO");
   const [reference, setReference] = useState("");
@@ -48,34 +47,40 @@ export default function MemberStatements({ memberId }: { memberId: string }) {
   useEffect(() => { void load(); }, [load, memberId]);
 
   const visibleStatements = useMemo(() => statements.filter((statement) => statementTab === "CURRENT" ? statement.state === "CURRENT" : statementTab === "PREVIOUS" ? statement.state === "PAST" : statement.state === "UPCOMING"), [statements, statementTab]);
-  const selectedItem = useMemo(() => statements.flatMap((s) => s.items).find((item) => item.id === repayItemId) || null, [statements, repayItemId]);
-  const due = selectedItem ? manilaDate(new Date()) >= selectedItem.dueAt : false;
+  const selectedStatement = useMemo(() => statements.find((statement) => statement.id === repayStatementId) || null, [statements, repayStatementId]);
   const qrProvider = method === "GCASH" ? "GCash" : bankProvider;
-  const availableQr = selectedItem && due && (method === "GCASH" || method === "BANK_TRANSFER")
-    ? destinations.find((d) => d.lenderId === selectedItem.loan.lender.id && d.method === method && d.provider === qrProvider)
-    : undefined;
+  const today = manilaDate(new Date());
+  const repayableItems = selectedStatement ? selectedStatement.items.filter((item) =>
+    item.loan.borrower.id === memberId && item.loan.status === "ACTIVE" && BigInt(item.remainingCentavos) > 0n
+  ) : [];
+  const statementQrDue = repayableItems.length > 0 && repayableItems.every((item) => today >= item.dueAt);
+  const statementQrDestinations = selectedStatement && statementQrDue && (method === "GCASH" || method === "BANK_TRANSFER")
+    ? [...new Map(repayableItems.map((item) => {
+      const destination = destinations.find((d) => d.lenderId === item.loan.lender.id && d.method === method && d.provider === qrProvider);
+      return destination ? [destination.lenderId, destination] as const : null;
+    }).filter((entry): entry is readonly [string, Destination] => entry !== null)).values()]
+    : [];
 
   async function submitRepayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedItem || saving) return;
+    if (!selectedStatement || saving) return;
     setSaving(true); setError(""); setNotice("");
     try {
-      const response = await fetch("/api/payments", {
+      const response = await fetch("/api/member/statements/repay", {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify({
-          loanId: selectedItem.loanId, cutoffInstallmentId: selectedItem.id, amountPhp: amount,
+          periodStart: selectedStatement.periodStart, periodEnd: selectedStatement.periodEnd,
           method, reference: reference || undefined,
-          note: "Statement repayment " + selectedItem.dueAt,
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not submit this repayment.");
-      setNotice("Repayment submitted for the selected cutoff and is awaiting the other party’s acknowledgment.");
-      setRepayItemId(null); setAmount(""); setReference("");
+      if (!response.ok) throw new Error(data.error || "Could not submit this statement repayment.");
+      setNotice("Statement repayment submitted across " + data.paymentCount + " loan item(s), awaiting acknowledgment from the other party or parties.");
+      setRepayStatementId(null); setReference("");
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not submit this repayment.");
+      setError(cause instanceof Error ? cause.message : "Could not submit this statement repayment.");
     } finally { setSaving(false); }
   }
 
@@ -96,26 +101,33 @@ export default function MemberStatements({ memberId }: { memberId: string }) {
         <div className="member-loan-head"><div><span className="loan-code">{stateLabel}</span><h2>{new Date(statement.periodStart + "T12:00:00").toLocaleDateString()} – {new Date(statement.periodEnd + "T12:00:00").toLocaleDateString()}</h2><p>{statement.items.length} loan / cutoff item(s) · earliest due {statement.dueAt}</p></div><span className={"status-pill " + (statement.state === "CURRENT" ? "active" : statement.state === "UPCOMING" ? "pending" : "settled")}>{statement.state}</span></div>
         <div className="member-loan-stats"><div><small>Statement total</small><strong>{formatPhp(BigInt(statement.totalCentavos))}</strong></div><div><small>Confirmed paid</small><strong>{formatPhp(BigInt(statement.paidCentavos))}</strong></div><div><small>Remaining in this statement</small><strong>{formatPhp(BigInt(statement.remainingCentavos))}</strong></div></div>
         {BigInt(statement.pendingCentavos) > 0n && <p className="workspace-muted">Awaiting acknowledgment: {formatPhp(BigInt(statement.pendingCentavos))}. Pending payments are shown separately and do not count as confirmed paid.</p>}
+        {(() => {
+          const repayable = statement.items.filter((item) => item.loan.borrower.id === memberId && item.loan.status === "ACTIVE" && BigInt(item.remainingCentavos) > 0n);
+          const repayableTotal = repayable.reduce((sum, item) => sum + BigInt(item.remainingCentavos), 0n);
+          const hasPending = repayable.some((item) => item.payments.some((payment) => payment.status === "AWAITING_ACKNOWLEDGMENT"));
+          const formOpen = repayStatementId === statement.id;
+          return <>
+            {repayableTotal > 0n && <div className="statement-repay-bar"><div><small>Unpaid amount you can repay for this statement</small><strong>{formatPhp(repayableTotal)}</strong>{hasPending && <span>One or more repayments are awaiting acknowledgment.</span>}</div><button className="primary-button" type="button" disabled={hasPending} onClick={() => { setRepayStatementId(formOpen ? null : statement.id); setReference(""); setError(""); }}>{formOpen ? "Cancel repayment" : "Repay this statement"}</button></div>}
+            {formOpen && repayableTotal > 0n && <form className="workspace-form loan-form statement-repay-form" onSubmit={submitRepayment}>
+              <div className="form-span"><strong>Statement repayment total: {formatPhp(repayableTotal)}</strong><p className="workspace-muted">Pactora will allocate this full unpaid statement amount across its eligible loan items. The individual breakdown and payment history remain available below.</p></div>
+              <label>Payment method<select value={method} onChange={(e) => setMethod(e.target.value)}><option value="GCASH">GCash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CASH">Cash</option><option value="OTHER">Other</option></select></label>
+              {method === "BANK_TRANSFER" && <label>Bank<select value={bankProvider} onChange={(e) => setBankProvider(e.target.value)}>{["BDO","BPI","Metrobank","UnionBank","LandBank","Other"].map((bank) => <option key={bank} value={bank}>{bank}</option>)}</select></label>}
+              {(method === "GCASH" || method === "BANK_TRANSFER") && <div className="form-span payment-qr-member-list">
+                {!repayable.every((item) => today >= item.dueAt) ? <><strong>Payment QR available when the statement items reach their cutoff due dates</strong><p className="workspace-muted">Bank and GCash QR payments unlock at 12:00 AM Philippine time once all unpaid items in this statement are due. Cash and other methods remain available earlier.</p></> : statementQrDestinations.length > 0 ? statementQrDestinations.map((destination) => <article className="payment-qr-member-card" key={destination.id}><PaymentQrImage src={destination.qrImageData} alt={destination.provider + " payment QR"} /><div><strong>{destination.provider}</strong>{destination.recipientName && <span>Recipient: {destination.recipientName}</span>}{destination.accountLabel && <span>{destination.accountLabel}</span>}<small>Verify the recipient and amount in your payment app before sending money.</small></div></article>) : <p className="payment-qr-missing">No matching {qrProvider} QR is configured for the lender or lenders in this statement. Contact them for payment instructions.</p>}
+              </div>}
+              <label className="form-span">Transaction reference {(method === "GCASH" || method === "BANK_TRANSFER") ? "(required)" : "(optional)"}<input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={200} required={method === "GCASH" || method === "BANK_TRANSFER"} placeholder="Transaction reference" /></label>
+              <button className="primary-button form-span" type="submit" disabled={saving || hasPending || ((method === "GCASH" || method === "BANK_TRANSFER") && !repayable.every((item) => today >= item.dueAt))}>{saving ? "Submitting…" : "Submit full statement repayment"}</button>
+            </form>}
+          </>;
+        })()}
         <button className="secondary-button" type="button" aria-expanded={isOpen} onClick={() => setExpanded(isOpen ? null : statement.id)}>{isOpen ? "Hide breakdown" : "View statement breakdown"}</button>
         {isOpen && <div className="workspace-stack" style={{ marginTop: "1rem" }}>
           {statement.items.map((item) => {
             const pending = item.payments.some((payment) => payment.status === "AWAITING_ACKNOWLEDGMENT");
-            const canRepay = item.loan.borrower.id === memberId && item.loan.status === "ACTIVE" && BigInt(item.remainingCentavos) > 0n && !pending;
-            const formOpen = repayItemId === item.id;
             return <section className="terms-summary" key={item.id}>
               <div className="member-loan-head"><div><strong>{item.loan.publicCode} · {item.loan.description}</strong><p>{item.loan.borrower.id === memberId ? "You are the borrower" : "You are the lender"} · with {item.loan.borrower.id === memberId ? item.loan.lender.displayName : item.loan.borrower.displayName}</p><small>Due {item.dueAt}{item.note ? " · " + item.note : ""}</small></div><span className="status-pill">{item.remainingCentavos === "0" ? "PAID" : pending ? "AWAITING ACK" : "BALANCE DUE"}</span></div>
               <div className="member-loan-stats"><div><small>Cutoff amount</small><strong>{formatPhp(BigInt(item.amountCentavos))}</strong></div><div><small>Confirmed paid</small><strong>{formatPhp(BigInt(item.paidCentavos))}</strong></div><div><small>Remaining</small><strong>{formatPhp(BigInt(item.remainingCentavos))}</strong></div></div>
-              {canRepay && <button className="secondary-button" type="button" onClick={() => { setRepayItemId(formOpen ? null : item.id); setAmount(""); setReference(""); setError(""); }}>{formOpen ? "Cancel repayment" : "Repay this cutoff"}</button>}
-              {formOpen && canRepay && <form className="workspace-form loan-form" onSubmit={submitRepayment}>
-                <label>Amount (PHP)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="e.g. 500.00" /></label>
-                <label>Payment method<select value={method} onChange={(e) => setMethod(e.target.value)}><option value="GCASH">GCash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CASH">Cash</option><option value="OTHER">Other</option></select></label>
-                {method === "BANK_TRANSFER" && <label>Bank<select value={bankProvider} onChange={(e) => setBankProvider(e.target.value)}>{["BDO","BPI","Metrobank","UnionBank","LandBank","Other"].map((bank) => <option key={bank} value={bank}>{bank}</option>)}</select></label>}
-                {(method === "GCASH" || method === "BANK_TRANSFER") && <div className="form-span payment-qr-member-list">
-                  {!due ? <><strong>Payment QR available on the cutoff due date</strong><p className="workspace-muted">Bank and GCash QR payments unlock at 12:00 AM Philippine time on {item.dueAt}. Cash and other methods remain available before then.</p></> : availableQr ? <article className="payment-qr-member-card"><PaymentQrImage src={availableQr.qrImageData} alt={availableQr.provider + " payment QR"} /><div><strong>{availableQr.provider}</strong>{availableQr.recipientName && <span>Recipient: {availableQr.recipientName}</span>}{availableQr.accountLabel && <span>{availableQr.accountLabel}</span>}<small>Verify the recipient and amount in your payment app before sending money.</small></div></article> : <p className="payment-qr-missing">No {qrProvider} QR is configured for {item.loan.lender.displayName}. Contact the lender for payment instructions.</p>}
-                </div>}
-                <label className="form-span">Reference {(method === "GCASH" || method === "BANK_TRANSFER") ? "(required)" : "(optional)"}<input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={200} required={method === "GCASH" || method === "BANK_TRANSFER"} placeholder="Transaction reference" /></label>
-                <button className="primary-button form-span" type="submit" disabled={saving}>{saving ? "Submitting…" : "Submit repayment for acknowledgment"}</button>
-              </form>}
+
               {item.payments.length > 0 && <div className="payment-history"><strong>Payment history for this cutoff</strong>{item.payments.map((payment) => <div className="payment-row" key={payment.id}><div><b>{formatPhp(BigInt(payment.amountCentavos))}</b><small>{payment.method.replaceAll("_", " ")} · {new Date(payment.createdAt).toLocaleDateString()}{payment.reference ? " · Ref: " + payment.reference : ""}</small></div><span className={"status-pill " + payment.status.toLowerCase().replaceAll("_", "-")}>{payment.status.replaceAll("_", " ")}</span></div>)}</div>}
             </section>;
           })}
