@@ -32,7 +32,7 @@ export default function MemberPage() {
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||"Could not load your records.");
       setLoans(data.loans);
-      if(statementsResponse.ok){const statementsData=await statementsResponse.json();const current=(statementsData.statements||[]).find((statement:{state:string})=>statement.state==="CURRENT");const due=(current?.items||[]).filter((item:{loan:{borrower:{id:string}}})=>item.loan.borrower.id===me.member.id).reduce((sum:bigint,item:{remainingCentavos:string})=>sum+BigInt(item.remainingCentavos),0n);setCurrentCutoffOwed(due);}else{setCurrentCutoffOwed(0n);}
+      if(statementsResponse.ok){const statementsData=await statementsResponse.json();const current=(statementsData.statements||[]).find((statement:{state:string})=>statement.state==="CURRENT");const due=(current?.items||[]).filter((item:{loan:{borrower:{id:string};status:string}})=>item.loan.borrower.id===me.member.id&&item.loan.status==="ACTIVE").reduce((sum:bigint,item:{remainingCentavos:string})=>sum+BigInt(item.remainingCentavos),0n);setCurrentCutoffOwed(due);}else{setCurrentCutoffOwed(0n);}
     }catch(cause){setError(cause instanceof Error?cause.message:"Could not load your records.");}
     finally{setLoading(false);}
   },[router]);
