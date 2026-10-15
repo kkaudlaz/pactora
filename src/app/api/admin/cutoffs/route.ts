@@ -18,7 +18,7 @@ export async function GET() {
   const owned = await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "LOAN", eventType: "LOAN_DRAFT_CREATED" }, select: { entityId: true } });
   const installments = await prisma.cutoffInstallment.findMany({
     where: { loan: { id: { in: owned.map((entry) => entry.entityId) } } },
-    include: { loan: { select: { id: true, publicCode: true, description: true, status: true, borrower: { select: { id: true, displayName: true } }, lender: { select: { id: true, displayName: true } } } }, payments: { include: { reversals: { select: { amountCentavos: true, status: true } } }, select: { id: true, amountCentavos: true, status: true, createdAt: true, paidAt: true, reversals: true } } },
+    include: { loan: { select: { id: true, publicCode: true, description: true, status: true, borrower: { select: { id: true, displayName: true } }, lender: { select: { id: true, displayName: true } } } }, payments: { select: { id: true, amountCentavos: true, status: true, createdAt: true, paidAt: true, reversals: { select: { amountCentavos: true, status: true } } } } },
     orderBy: [{ periodStart: "asc" }, { dueAt: "asc" }],
   });
   return NextResponse.json({ installments: installments.map((item) => ({
