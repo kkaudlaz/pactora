@@ -20,8 +20,8 @@ function makeStatements(items:Item[]):Statement[]{
 }
 export default function CutoffsManager({loans,ownerId,onChanged,showRepayments:_showRepayments=true}:{loans:Loan[];ownerId?:string;onChanged:()=>Promise<void>;showRepayments?:boolean}) {
  const [items,setItems]=useState<Item[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const load=useCallback(async()=>{try{const r=await fetch("/api/admin/cutoffs",{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Could not load cutoffs.");setItems(d.installments||[]);}catch(e){setError(e instanceof Error?e.message:"Could not load cutoffs.");}},[]);
- useEffect(()=>{void load();},[load]);
+ const load=useCallback(async()=>{const r=await fetch("/api/admin/cutoffs",{cache:"no-store"});const body=await r.text();let d:{error?:string;installments?:Item[]};try{d=JSON.parse(body) as {error?:string;installments?:Item[]};}catch{throw Error(`Cutoff API returned an invalid response (HTTP ${r.status}). Check the Vercel function logs for /api/admin/cutoffs.`);}if(!r.ok)throw Error(d.error||`Could not load cutoffs (HTTP ${r.status}).`);setItems(d.installments||[]);},[]);
+ useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:"Could not load cutoffs."));},[load]);
  const active=loans.filter(l=>l.status==="ACTIVE"&&(l.borrower.id===ownerId||l.lender.id===ownerId));
  const statements=useMemo(()=>makeStatements(items),[items]);
  const groups=[["Overdue cutoffs",statements.filter(s=>s.dueAt<today()&&s.paid<s.total)],["Current cutoff",statements.filter(s=>s.periodStart<=today()&&s.dueAt>=today()&&s.paid<s.total)],["Upcoming cutoffs",statements.filter(s=>s.periodStart>today()&&s.paid<s.total)],["Paid cutoff history",statements.filter(s=>s.paid>=s.total)]] as const;
