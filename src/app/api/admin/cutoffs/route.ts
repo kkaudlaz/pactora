@@ -21,7 +21,18 @@ export async function GET() {
    if (!loan.dueAt || loan.dueAt < loan.borrowedAt) continue;
    const periods = cutoffPeriodsBetween(loan.borrowedAt, loan.dueAt);
    if (!periods.length) continue;
-   const existing = new Map(loan.cutoffInstallments.map((item) => [item.periodStart.toISOString().slice(0, 10) + ":" + item.periodEnd.toISOString().slice(0, 10), item]));
+   // Migrate the previous initial Aug 27–Oct 7 preset into the agreed Aug 27–Oct 15 period without losing payments.
+   const legacyInitial = loan.cutoffInstallments.find((item) => item.periodStart.toISOString().slice(0, 10) === "2026-08-27" && item.periodEnd.toISOString().slice(0, 10) === "2026-10-07");
+   const currentInitial = loan.cutoffInstallments.some((item) => item.periodStart.toISOString().slice(0, 10) === "2026-08-27" && item.periodEnd.toISOString().slice(0, 10) === "2026-10-15");
+   if (legacyInitial && !currentInitial) {
+    await tx.cutoffInstallment.update({ where: { id: legacyInitial.id }, data: { periodEnd: new Date("2026-10-15T00:00:00.000Z"), dueAt: new Date("2026-10-15T00:00:00.000Z"), note: legacyInitial.note ? legacyInitial.note + " (period aligned to shared cutoff calendar)" : "Period aligned to shared cutoff calendar." } });
+   }
+   const existing = new Map(loan.cutoffInstallments.map((item) => {
+    const start = item.periodStart.toISOString().slice(0, 10);
+    const rawEnd = item.periodEnd.toISOString().slice(0, 10);
+    const end = start === "2026-08-27" && rawEnd === "2026-10-07" && !currentInitial ? "2026-10-15" : rawEnd;
+    return [start + ":" + end, item] as const;
+   }));
    const missing = periods.filter((period) => !existing.has(period.start + ":" + period.end));
    if (!missing.length) continue;
    const alreadyScheduled = loan.cutoffInstallments.reduce((sum, item) => sum + item.amountCentavos, 0n);
