@@ -9,18 +9,15 @@ import MemberStatements from "@/components/member-statements";
 type Payment = { id: string; amountCentavos: string; method: string; status: string; createdByMemberId: string | null; paidAt: string | null; createdAt: string };
 type Loan = { id: string; publicCode: string; borrower: {id:string;displayName:string}; lender: {id:string;displayName:string}; category: string; description: string; principalCentavos: string; outstandingCentavos: string; repaymentTerms: string; borrowedAt?: string; dueAt: string|null; status: string; termsVersion: number; termsHash: string|null; createdAt: string; myTermsAccepted: boolean; otherPartyAccepted: boolean; payments: Payment[] };
 type Member = {id:string;displayName:string;role:"OWNER"|"MEMBER"};
-type PaymentDestination = {id:string;lenderId:string;method:"GCASH"|"BANK_TRANSFER";provider:string;recipientName:string|null;accountLabel:string|null;qrImageData:string;updatedAt:string};
 
 export default function MemberPage() {
   const router = useRouter();
   const [member,setMember]=useState<Member|null>(null);
   const [loans,setLoans]=useState<Loan[]>([]);
-  const [paymentDestinations,setPaymentDestinations]=useState<PaymentDestination[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
   const [confirmingPaymentId,setConfirmingPaymentId]=useState<string|null>(null);
-  const [,setClockTick]=useState(0);
 
   const load=useCallback(async()=>{
     setLoading(true);setError("");
@@ -33,13 +30,10 @@ export default function MemberPage() {
       const response=await fetch("/api/loans",{cache:"no-store"});const data=await response.json();
       if(!response.ok)throw new Error(data.error||"Could not load your records.");
       setLoans(data.loans);
-      try { const qrResponse=await fetch("/api/payment-destinations",{cache:"no-store"}); const qrData=await qrResponse.json(); if(qrResponse.ok)setPaymentDestinations(qrData.destinations||[]); } catch { /* QR settings are optional; the ledger remains usable if they fail to load. */ }
     }catch(cause){setError(cause instanceof Error?cause.message:"Could not load your records.");}
     finally{setLoading(false);}
   },[router]);
   useEffect(()=>{void load();},[load]);
-  // Re-evaluate the Manila due-date boundary while this page stays open.
-  useEffect(()=>{const timer=window.setInterval(()=>setClockTick(Date.now()),30_000);return()=>window.clearInterval(timer);},[]);
 
   async function confirmPayment(payment:Payment){
     if(confirmingPaymentId===payment.id)return;
@@ -53,9 +47,6 @@ export default function MemberPage() {
 
   const owedToYou=activeLoans.filter((loan)=>loan.lender.id===member?.id).reduce((sum,loan)=>sum+BigInt(loan.outstandingCentavos),0n);
   const youOwe=activeLoans.filter((loan)=>loan.borrower.id===member?.id).reduce((sum,loan)=>sum+BigInt(loan.outstandingCentavos),0n);
-  const selectedLenders=Array.from(new Map(activeLoans.filter((loan)=>selectedLoanIds.includes(loan.id)).map((loan)=>[loan.lender.id,loan.lender] as const)).values());
-  const qrProvider=method==="GCASH"?"GCash":bankProvider;
-  const manilaDate=(value:Date)=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).format(value);
 
 
   return <main className="workspace-shell"><header className="workspace-header"><a className="brand" href="/member"><span className="brand-mark">P</span><span><strong>pactora</strong><small>PRIVATE LEDGER</small></span></a><div className="workspace-head-right"><span className="secure-indicator"><i/> Personal records</span><span className="owner-name">{member?.displayName||"Loading…"}</span><button className="secondary-button" onClick={logout}>Sign out</button></div></header><div className="member-content"><div className="page-heading"><div><div className="eyebrow">YOUR PRIVATE LEDGER</div><h1>Hello{member?.displayName?`, ${member.displayName.split(" ")[0]}`:""}.</h1><p>Review your loan terms and repayment history. When you and the owner agree in person, the owner can record that activation in Pactora.</p></div><button className="secondary-button" onClick={()=>void load()}>↻ Refresh</button></div>
