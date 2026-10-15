@@ -26,12 +26,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
         if (prior.entityType !== "PAYMENT" || prior.eventType !== "PAYMENT_CONFIRMED") throw new Error("IDEMPOTENCY_CONFLICT");
         return { payment: await tx.payment.findUniqueOrThrow({ where: { id: prior.entityId } }), settled: false, replay: true };
       }
-      const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { loan: { include: { payments: { include: { reversals: true } } } } } });
+      const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { loan: { include: { payments: { include: { reversals: true } } } }, cutoffInstallment: { include: { payments: { include: { reversals: true } } } } } });
       if (!payment) throw new Error("PAYMENT_NOT_FOUND");
       const loan = payment.loan;
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
       if (payment.createdByMemberId === session.id) throw new Error("SELF_CONFIRM");
       if (payment.status !== "AWAITING_ACKNOWLEDGMENT") throw new Error("PAYMENT_NOT_PENDING");
+      if (payment.cutoffInstallmentId) {
+        const installment = payment.cutoffInstallment;
+        if (!installment || installment.loanId !== loan.id) throw new Error("CUTOFF_NOT_FOUND");
+        const applied = installment.payments.reduce((sum, item) => {
+          if (item.id === payment.id || (item.status !== "CONFIRMED" && item.status !== "AWAITING_ACKNOWLEDGMENT")) return sum;
+          const reversals = item.reversals.reduce((total, reversal) => reversal.status === "CONFIRMED" ? total + reversal.amountCentavos : total, 0n);
+          return sum + item.amountCentavos - reversals;
+        }, 0n);
+        if (payment.amountCentavos > installment.amountCentavos - applied) throw new Error("CUTOFF_EXCEEDS_BALANCE");
+      }
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
       if (payment.amountCentavos > outstanding) throw new Error("PAYMENT_EXCEEDS_BALANCE");
       const confirmedAt = new Date();
@@ -55,7 +65,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
   } catch (error) {
     if (error instanceof Error) {
       const known: Record<string, { status: number; message: string }> = {
-        IDEMPOTENCY_CONFLICT: { status: 409, message: "This idempotency key was used for another operation." }, PAYMENT_NOT_FOUND: { status: 404, message: "Payment not found." }, NOT_PARTY: { status: 403, message: "You are not a party to this loan." }, SELF_CONFIRM: { status: 403, message: "The person who proposed a payment cannot acknowledge it." }, PAYMENT_NOT_PENDING: { status: 409, message: "This payment is no longer awaiting acknowledgment." }, PAYMENT_EXCEEDS_BALANCE: { status: 409, message: "The payment now exceeds the outstanding balance; resolve the discrepancy first." },
+        IDEMPOTENCY_CONFLICT: { status: 409, message: "This idempotency key was used for another operation." }, PAYMENT_NOT_FOUND: { status: 404, message: "Payment not found." }, NOT_PARTY: { status: 403, message: "You are not a party to this loan." }, SELF_CONFIRM: { status: 403, message: "The person who proposed a payment cannot acknowledge it." }, PAYMENT_NOT_PENDING: { status: 409, message: "This payment is no longer awaiting acknowledgment." }, PAYMENT_EXCEEDS_BALANCE: { status: 409, message: "The payment now exceeds the outstanding balance; resolve the discrepancy first." }, CUTOFF_NOT_FOUND: { status: 404, message: "The linked cutoff no longer exists." }, CUTOFF_EXCEEDS_BALANCE: { status: 409, message: "This payment exceeds the remaining amount for its assigned cutoff. It cannot be moved automatically." },
       };
       if (known[error.message]) return NextResponse.json({ error: known[error.message].message }, { status: known[error.message].status });
     }
