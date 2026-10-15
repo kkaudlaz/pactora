@@ -17,7 +17,7 @@ export async function GET() {
     where: { loan: { OR: [{ borrowerId: session.id }, { lenderId: session.id }] } },
     include: {
       loan: { select: {
-        id: true, publicCode: true, description: true, status: true, principalCentavos: true,
+        id: true, publicCode: true, description: true, status: true,
         borrower: { select: { id: true, displayName: true } },
         lender: { select: { id: true, displayName: true } },
       } },
