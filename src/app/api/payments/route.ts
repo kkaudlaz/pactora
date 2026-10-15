@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       if (loan.status !== "ACTIVE") throw new Error("LOAN_NOT_ACTIVE");
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
       let cutoffInstallmentId: string | null = null;
+      let cutoffDueAt: Date | null = null;
       if (parsed.data.cutoffInstallmentId) {
         const installment = await tx.cutoffInstallment.findUnique({ where: { id: parsed.data.cutoffInstallmentId }, include: { payments: { include: { reversals: true } } } });
         if (!installment || installment.loanId !== loan.id) throw new Error("CUTOFF_NOT_FOUND");
@@ -46,10 +47,12 @@ export async function POST(request: NextRequest) {
         }, 0n);
         if (applied >= installment.amountCentavos || amountCentavos > installment.amountCentavos - applied) throw new Error("CUTOFF_EXCEEDS_BALANCE");
         cutoffInstallmentId = installment.id;
+        cutoffDueAt = installment.dueAt;
       }
       if (parsed.data.method === "GCASH" || parsed.data.method === "BANK_TRANSFER") {
         const dateInManila = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-        if (!loan.dueAt || dateInManila(new Date()) < dateInManila(loan.dueAt)) throw new Error("QR_PAYMENT_NOT_YET_AVAILABLE");
+        const qrDueAt = cutoffDueAt ?? loan.dueAt;
+        if (!qrDueAt || dateInManila(new Date()) < dateInManila(qrDueAt)) throw new Error("QR_PAYMENT_NOT_YET_AVAILABLE");
       }
       if (loan.payments.some((item) => item.status === "AWAITING_ACKNOWLEDGMENT")) throw new Error("PAYMENT_ALREADY_PENDING");
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
