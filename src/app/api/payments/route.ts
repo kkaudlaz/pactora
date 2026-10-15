@@ -34,6 +34,19 @@ export async function POST(request: NextRequest) {
       if (!loan) throw new Error("LOAN_NOT_FOUND");
       if (loan.status !== "ACTIVE") throw new Error("LOAN_NOT_ACTIVE");
       if (session.id !== loan.borrowerId && session.id !== loan.lenderId) throw new Error("NOT_PARTY");
+      let cutoffInstallmentId: string | null = null;
+      if (parsed.data.cutoffInstallmentId) {
+        const installment = await tx.cutoffInstallment.findUnique({ where: { id: parsed.data.cutoffInstallmentId }, include: { payments: { include: { reversals: true } } } });
+        if (!installment || installment.loanId !== loan.id) throw new Error("CUTOFF_NOT_FOUND");
+        if (session.role === "OWNER" && loan.lenderId !== session.id && loan.borrowerId !== session.id) throw new Error("NOT_PARTY");
+        const applied = installment.payments.reduce((sum, item) => {
+          if (item.status !== "CONFIRMED" && item.status !== "AWAITING_ACKNOWLEDGMENT") return sum;
+          const reversals = item.reversals.reduce((total, reversal) => reversal.status === "CONFIRMED" ? total + reversal.amountCentavos : total, 0n);
+          return sum + item.amountCentavos - reversals;
+        }, 0n);
+        if (applied >= installment.amountCentavos || amountCentavos > installment.amountCentavos - applied) throw new Error("CUTOFF_EXCEEDS_BALANCE");
+        cutoffInstallmentId = installment.id;
+      }
       if (parsed.data.method === "GCASH" || parsed.data.method === "BANK_TRANSFER") {
         const dateInManila = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
         if (!loan.dueAt || dateInManila(new Date()) < dateInManila(loan.dueAt)) throw new Error("QR_PAYMENT_NOT_YET_AVAILABLE");
@@ -42,11 +55,11 @@ export async function POST(request: NextRequest) {
       const outstanding = calculateOutstandingCentavos(loan.principalCentavos, loan.payments.map((item) => ({ id: item.id, amountCentavos: item.amountCentavos, status: item.status, reversals: item.reversals.map((r) => ({ amountCentavos: r.amountCentavos, status: r.status })) })));
       if (amountCentavos > outstanding) throw new Error("PAYMENT_EXCEEDS_BALANCE");
       const created = await tx.payment.create({ data: {
-        loanId: loan.id, amountCentavos, method: parsed.data.method, status: "AWAITING_ACKNOWLEDGMENT",
+        loanId: loan.id, amountCentavos, method: parsed.data.method, status: "AWAITING_ACKNOWLEDGMENT", cutoffInstallmentId,
         paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : null, reference: parsed.data.reference || null,
         note: parsed.data.note || null, createdByMemberId: session.id,
       } });
-      await appendAuditEntry(tx, { entityType: "PAYMENT", entityId: created.id, eventType: "PAYMENT_PROPOSED", actorMemberId: session.id, idempotencyKey, payload: { loanId: loan.id, publicCode: loan.publicCode, amountCentavos: amountCentavos.toString(), method: created.method, status: created.status, reference: created.reference } });
+      await appendAuditEntry(tx, { entityType: "PAYMENT", entityId: created.id, eventType: "PAYMENT_PROPOSED", actorMemberId: session.id, idempotencyKey, payload: { loanId: loan.id, publicCode: loan.publicCode, amountCentavos: amountCentavos.toString(), method: created.method, status: created.status, reference: created.reference, cutoffInstallmentId } });
       return created;
     });
     return NextResponse.json({ payment: { id: payment.id, loanId: payment.loanId, amountCentavos: payment.amountCentavos.toString(), method: payment.method, status: payment.status, createdAt: payment.createdAt.toISOString() } }, { status: 201 });
@@ -59,6 +72,8 @@ export async function POST(request: NextRequest) {
         QR_PAYMENT_NOT_YET_AVAILABLE: { status: 409, message: "Bank and GCash QR repayments become available at 12:00 AM Philippine time on the loan due date. You can record cash or other payments before then." },
         NOT_PARTY: { status: 403, message: "You are not a party to this loan." },
         PAYMENT_EXCEEDS_BALANCE: { status: 400, message: "Payment exceeds the outstanding confirmed balance." },
+        CUTOFF_NOT_FOUND: { status: 404, message: "That cutoff is not configured for this loan." },
+        CUTOFF_EXCEEDS_BALANCE: { status: 409, message: "That payment exceeds the remaining balance for this cutoff. Choose a smaller amount or another cutoff." },
         PAYMENT_ALREADY_PENDING: { status: 409, message: "This loan already has a repayment awaiting acknowledgment. Wait for it to be acknowledged before submitting another repayment." },
       };
       if (known[error.message]) return NextResponse.json({ error: known[error.message].message }, { status: known[error.message].status });
