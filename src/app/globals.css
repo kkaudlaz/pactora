@@ -226,3 +226,15 @@
     max-height:calc(96dvh - 150px) !important;
   }
 }
+
+
+/* Member cutoff navigation and amount hierarchy */
+.statement-tabs{display:flex;gap:8px;padding:5px;margin:0 0 14px;border:1px solid var(--line);border-radius:11px;background:#f7f9fb}
+.statement-tab{display:flex;align-items:center;justify-content:center;gap:8px;flex:1;min-width:0;padding:11px 13px;border:1px solid transparent;border-radius:8px;background:transparent;color:#718096;font-size:11px;font-weight:750}
+.statement-tab span{display:inline-grid;place-items:center;min-width:21px;height:21px;padding:0 5px;border-radius:6px;background:#e9edf2;color:#6d7b8e;font-size:9px}
+.statement-tab.active{border-color:#d9e9e2;background:#fff;color:#176f59;box-shadow:0 2px 7px #152e2408}
+.statement-tab.active span{background:#e2f4eb;color:#18795f}
+.current-cutoff-stat{border-color:#b9ddcf;background:linear-gradient(145deg,#f5fbf8 0%,#fff 76%);box-shadow:0 5px 18px #18795f0c}
+.current-cutoff-stat .stat-top{color:#176f59}
+.current-cutoff-stat .stat-value{font-size:clamp(25px,2.6vw,34px);color:#176f59}
+@media(max-width:520px){.statement-tabs{gap:4px;padding:4px}.statement-tab{gap:5px;padding:10px 5px;font-size:10px}.statement-tab span{min-width:18px;height:18px;padding:0 4px}.current-cutoff-stat .stat-value{font-size:22px}}
