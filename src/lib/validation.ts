@@ -19,6 +19,7 @@ export const createLoanDraftSchema = z.object({
 
 export const proposePaymentSchema = z.object({
   loanId: z.string().trim().min(1).max(128),
+  cutoffInstallmentId: z.string().trim().min(1).max(128).optional(),
   amountPhp: z.string().trim().regex(/^(?:0|[1-9][0-9]*)(?:[.][0-9]{1,2})?$/, "Use a PHP amount with at most two decimal places."),
   method: paymentMethodSchema,
   paidAt: z.string().datetime().optional(),
