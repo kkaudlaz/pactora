@@ -18,13 +18,13 @@ export async function GET() {
   const owned = await prisma.auditEntry.findMany({ where: { actorMemberId: session.id, entityType: "LOAN", eventType: "LOAN_DRAFT_CREATED" }, select: { entityId: true } });
   const installments = await prisma.cutoffInstallment.findMany({
     where: { loan: { id: { in: owned.map((entry) => entry.entityId) } } },
-    include: { loan: { select: { id: true, publicCode: true, description: true, status: true, borrower: { select: { id: true, displayName: true } }, lender: { select: { id: true, displayName: true } } } }, payments: { select: { id: true, amountCentavos: true, status: true, createdAt: true, paidAt: true } } },
+    include: { loan: { select: { id: true, publicCode: true, description: true, status: true, borrower: { select: { id: true, displayName: true } }, lender: { select: { id: true, displayName: true } } } }, payments: { include: { reversals: { select: { amountCentavos: true, status: true } } }, select: { id: true, amountCentavos: true, status: true, createdAt: true, paidAt: true, reversals: true } } },
     orderBy: [{ periodStart: "asc" }, { dueAt: "asc" }],
   });
   return NextResponse.json({ installments: installments.map((item) => ({
     id: item.id, loanId: item.loanId, periodStart: item.periodStart.toISOString().slice(0, 10), periodEnd: item.periodEnd.toISOString().slice(0, 10), dueAt: item.dueAt.toISOString().slice(0, 10),
     amountCentavos: item.amountCentavos.toString(), note: item.note, loan: item.loan,
-    payments: item.payments.map((payment) => ({ ...payment, amountCentavos: payment.amountCentavos.toString(), createdAt: payment.createdAt.toISOString(), paidAt: payment.paidAt?.toISOString() ?? null })),
+    payments: item.payments.map((payment) => ({ ...payment, amountCentavos: payment.amountCentavos.toString(), createdAt: payment.createdAt.toISOString(), paidAt: payment.paidAt?.toISOString() ?? null, reversals: payment.reversals.map((reversal) => ({ amountCentavos: reversal.amountCentavos.toString(), status: reversal.status })) })),
   })) });
 }
 
